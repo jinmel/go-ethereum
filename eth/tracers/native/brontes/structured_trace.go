@@ -82,7 +82,7 @@ func (t *TransactionTraceWithLogs) GetCreateOutput() common.Address {
 }
 
 func (t *TransactionTraceWithLogs) ActionType() ActionType {
-	return t.Trace.Action.ActionType()
+	return t.Trace.Action.Type
 }
 
 func (t *TransactionTraceWithLogs) GetFromAddr() common.Address {

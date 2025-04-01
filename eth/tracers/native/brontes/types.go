@@ -249,26 +249,29 @@ func (rm *RecordedMemory) MemoryChunks() []string {
 
 // TransactionTrace represents a parity transaction trace.
 type TransactionTrace struct {
-	Action       ActionInterface `json:"action"`
-	Error        *string         `json:"error,omitempty"`
-	Result       *TraceOutput    `json:"result,omitempty"`
-	Subtraces    uint64          `json:"subtraces"`
-	TraceAddress []uint64        `json:"traceAddress"`
+	Action       *Action       `json:"action"`
+	Error        *string      `json:"error,omitempty"`
+	Result       *TraceOutput `json:"result,omitempty"`
+	Subtraces    uint64       `json:"subtraces"`
+	TraceAddress []uint64     `json:"traceAddress"`
 }
 
 func (t *TransactionTrace) IsStaticCall() bool {
-	if t.Action.ActionType() == ActionKindCall && t.Action.(*CallAction).CallType == CallKindStaticCall {
+	if t.Action.Type == ActionKindCall && t.Action.Call.CallType == CallKindStaticCall {
 		return true
 	}
 	return false
 }
 
 func (t *TransactionTrace) IsCreate() bool {
-	return t.Action.ActionType() == ActionKindCreate
+	return t.Action.Type == ActionKindCreate
 }
 
 func (t *TransactionTrace) IsDelegateCall() bool {
-	return t.Action.ActionType() == ActionKindCall && t.Action.(*CallAction).CallType == CallKindDelegateCall
+	if t.Action.Type == ActionKindCall && t.Action.Call.CallType == CallKindDelegateCall {
+		return true
+	}
+	return false
 }
 
 type ActionType int
@@ -280,14 +283,6 @@ const (
 	ActionKindReward
 )
 
-type ActionInterface interface {
-	GetFromAddr() common.Address
-	ActionType() ActionType
-	GetToAddr() common.Address
-	GetMsgValue() []byte
-	GetCallData() []byte
-}
-
 // Action represents a call action (or create/selfdestruct).
 type Action struct {
 	Type         ActionType
@@ -295,6 +290,62 @@ type Action struct {
 	Create       *CreateAction
 	SelfDestruct *SelfdestructAction
 	Reward       *RewardAction
+}
+
+func (a *Action) GetFromAddr() common.Address {
+	switch a.Type {
+	case ActionKindCall:
+		return a.Call.From
+	case ActionKindCreate:
+		return a.Create.From
+	case ActionKindSelfDestruct:
+		return a.SelfDestruct.Address
+	case ActionKindReward:
+		return a.Reward.Author
+	}
+	panic("unknown action type")
+}
+
+func (a *Action) GetToAddr() common.Address {
+	switch a.Type {
+	case ActionKindCall:
+		return a.Call.To
+	case ActionKindCreate:
+		return common.Address{}
+	case ActionKindSelfDestruct:
+		return a.SelfDestruct.Address
+	case ActionKindReward:
+		return common.Address{}
+	}
+	panic("unknown action type")
+}
+
+func (a *Action) GetMsgValue() []byte {
+	switch a.Type {
+	case ActionKindCall:
+		return a.Call.Value.Bytes()
+	case ActionKindCreate:
+		return a.Create.Value.Bytes()
+	case ActionKindSelfDestruct:
+		return []byte{}
+	case ActionKindReward:
+		return a.Reward.Value.Bytes()
+	}
+	panic("unknown action type")
+}
+
+func (a *Action) GetCallData() []byte {
+	switch a.Type {
+	case ActionKindCall:
+		return a.Call.Input
+	case ActionKindCreate:
+		return a.Create.Init
+	case ActionKindSelfDestruct:
+		return []byte{}
+	case ActionKindReward:
+		return []byte{}
+	}
+	panic("unknown action type")
 }
 
 type RewardType string

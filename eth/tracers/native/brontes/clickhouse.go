@@ -71,17 +71,15 @@ func NewClickhouseCreateAction(value *TxTrace) *ClickhouseCreateAction {
 	result := &ClickhouseCreateAction{}
 	for _, trace := range value.Trace {
 		if trace.IsCreate() {
-			if createAction, ok := trace.Trace.Action.(*CreateAction); ok {
-				result.TraceIdx = append(result.TraceIdx, trace.TraceIdx)
-				result.From = append(result.From, createAction.From.String())
-				result.Gas = append(result.Gas, createAction.Gas)
-				result.Init = append(result.Init, fmt.Sprintf("%x", createAction.Init))
+			result.TraceIdx = append(result.TraceIdx, trace.TraceIdx)
+			result.From = append(result.From, trace.Trace.Action.Create.From.String())
+			result.Gas = append(result.Gas, trace.Trace.Action.Create.Gas)
+			result.Init = append(result.Init, fmt.Sprintf("%x", trace.Trace.Action.Create.Init))
 
-				// Convert big.Int to [32]byte
-				var valueBytes [32]byte
-				createAction.Value.FillBytes(valueBytes[:])
-				result.Value = append(result.Value, valueBytes)
-			}
+			// Convert big.Int to [32]byte
+			var valueBytes [32]byte
+			trace.Trace.Action.Create.Value.FillBytes(valueBytes[:])
+			result.Value = append(result.Value, valueBytes)
 		}
 	}
 	return result
@@ -102,17 +100,17 @@ type ClickhouseCallAction struct {
 func NewClickhouseCallAction(value *TxTrace) *ClickhouseCallAction {
 	result := &ClickhouseCallAction{}
 	for _, trace := range value.Trace {
-		if callAction, ok := trace.Trace.Action.(*CallAction); ok {
-			result.TraceIdx = append(result.TraceIdx, trace.TraceIdx)
-			result.From = append(result.From, callAction.From.String())
-			result.CallType = append(result.CallType, callAction.CallType.String())
-			result.Gas = append(result.Gas, callAction.Gas)
-			result.Input = append(result.Input, fmt.Sprintf("%x", callAction.Input))
-			result.To = append(result.To, callAction.To.String())
 
-			// Convert big.Int to [32]byte
+		if trace.Trace.Action.Type == ActionKindCall {
+			result.TraceIdx = append(result.TraceIdx, trace.TraceIdx)
+			result.From = append(result.From, trace.Trace.Action.Call.From.String())
+			result.CallType = append(result.CallType, trace.Trace.Action.Call.CallType.String())
+			result.Gas = append(result.Gas, trace.Trace.Action.Call.Gas)
+			result.Input = append(result.Input, fmt.Sprintf("%x", trace.Trace.Action.Call.Input))
+			result.To = append(result.To, trace.Trace.Action.Call.To.String())
+
 			var valueBytes [32]byte
-			callAction.Value.FillBytes(valueBytes[:])
+			trace.Trace.Action.Call.Value.FillBytes(valueBytes[:])
 			result.Value = append(result.Value, valueBytes)
 		}
 	}
@@ -131,14 +129,14 @@ type ClickhouseSelfDestructAction struct {
 func NewClickhouseSelfDestructAction(value *TxTrace) *ClickhouseSelfDestructAction {
 	result := &ClickhouseSelfDestructAction{}
 	for _, trace := range value.Trace {
-		if selfDestruct, ok := trace.Trace.Action.(*SelfdestructAction); ok {
+		if trace.Trace.Action.Type == ActionKindSelfDestruct {
 			result.TraceIdx = append(result.TraceIdx, trace.TraceIdx)
-			result.Address = append(result.Address, selfDestruct.Address.String())
-			result.RefundAddress = append(result.RefundAddress, selfDestruct.RefundAddress.String())
+			result.Address = append(result.Address, trace.Trace.Action.SelfDestruct.Address.String())
+			result.RefundAddress = append(result.RefundAddress, trace.Trace.Action.SelfDestruct.RefundAddress.String())
 
 			// Convert big.Int to [32]byte
 			var balanceBytes [32]byte
-			selfDestruct.Balance.FillBytes(balanceBytes[:])
+			trace.Trace.Action.SelfDestruct.Balance.FillBytes(balanceBytes[:])
 			result.Balance = append(result.Balance, balanceBytes)
 		}
 	}
@@ -157,13 +155,13 @@ type ClickhouseRewardAction struct {
 func NewClickhouseRewardAction(value *TxTrace) *ClickhouseRewardAction {
 	result := &ClickhouseRewardAction{}
 	for _, trace := range value.Trace {
-		if rewardAction, ok := trace.Trace.Action.(*RewardAction); ok {
+		if trace.Trace.Action.Type == ActionKindReward {
 			result.TraceIdx = append(result.TraceIdx, trace.TraceIdx)
-			result.Author = append(result.Author, rewardAction.Author.String())
+			result.Author = append(result.Author, trace.Trace.Action.Reward.Author.String())
 
 			// Convert RewardType to string
 			var rewardTypeStr string
-			if rewardAction.RewardType == RewardTypeBlock {
+			if trace.Trace.Action.Reward.RewardType == RewardTypeBlock {
 				rewardTypeStr = "Block"
 			} else {
 				rewardTypeStr = "Uncle"
@@ -172,7 +170,7 @@ func NewClickhouseRewardAction(value *TxTrace) *ClickhouseRewardAction {
 
 			// Convert big.Int to [32]byte
 			var valueBytes [32]byte
-			rewardAction.Value.FillBytes(valueBytes[:])
+			trace.Trace.Action.Reward.Value.FillBytes(valueBytes[:])
 			result.Value = append(result.Value, valueBytes)
 		}
 	}

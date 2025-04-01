@@ -276,34 +276,33 @@ func (b *BrontesInspector) TraceAddress(nodes []CallTraceNode, idx int) []uint64
 func findMsgSender(traces []TransactionTraceWithLogs, trace *TransactionTrace) common.Address {
 	var msgSender common.Address
 
-	if trace.Action.ActionType() == ActionKindCall {
-		callAction, ok := trace.Action.(*CallAction)
-		if ok {
-			if callAction.CallType == CallKindDelegateCall {
-				var prevTrace *TransactionTraceWithLogs
-				// reverse iterate over traces
-				for i := len(traces) - 1; i >= 0; i-- {
-					n := &traces[i]
-					if n.Trace.Action.ActionType() == ActionKindCall {
-						if n.Trace.Action.(*CallAction).CallType != CallKindDelegateCall {
-							prevTrace = n
-							break
-						}
-					}
+	if trace.Action.Type == ActionKindCall {
 
-					if n.Trace.Action.ActionType() == ActionKindCreate {
+		callAction := trace.Action.Call
+
+		if callAction.CallType == CallKindDelegateCall {
+			var prevTrace *TransactionTraceWithLogs
+			for i := len(traces) - 1; i >= 0; i-- {
+				n := &traces[i]
+				if n.Trace.Action.Type == ActionKindCall {
+					if n.Trace.Action.Call.CallType != CallKindDelegateCall {
 						prevTrace = n
 						break
 					}
 				}
 
-				if prevTrace == nil {
-					panic("no previous trace found for delegate call")
+				if n.Trace.Action.Type == ActionKindCreate {
+					prevTrace = n
+					break
 				}
-				msgSender = prevTrace.MsgSender
-			} else {
-				msgSender = trace.Action.GetFromAddr()
 			}
+
+			if prevTrace == nil {
+				panic("no previous trace found for delegate call")
+			}
+			msgSender = prevTrace.MsgSender
+		} else {
+			msgSender = callAction.From
 		}
 	} else {
 		// For non-call actions (create, selfdestruct, etc.)
@@ -364,9 +363,9 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 	}
 }
 
-func (b *BrontesInspector) ParityAction(node *CallTraceNode) ActionInterface {
+func (b *BrontesInspector) ParityAction(node *CallTraceNode) *Action {
 	if node.Trace.Kind.IsAnyCall() {
-		return &CallAction{
+		inner := &CallAction{
 			From:     node.Trace.Caller,
 			To:       node.Trace.Address,
 			Value:    node.Trace.Value,
@@ -374,15 +373,22 @@ func (b *BrontesInspector) ParityAction(node *CallTraceNode) ActionInterface {
 			Input:    node.Trace.Data,
 			CallType: node.Trace.Kind,
 		}
+		return &Action{
+			Type: ActionKindCall,
+			Call: inner,
+		}
 	} else if node.Trace.Kind.IsAnyCreate() {
-		return &CreateAction{
+		inner := &CreateAction{
 			From:  node.Trace.Caller,
 			Value: node.Trace.Value,
 			Gas:   node.Trace.GasLimit,
 			Init:  node.Trace.Data,
 		}
+		return &Action{
+			Type:   ActionKindCreate,
+			Create: inner,
+		}
 	}
-
 	panic("unknown action type")
 }
 
