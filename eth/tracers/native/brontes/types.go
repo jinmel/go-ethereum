@@ -254,6 +254,21 @@ type TransactionTrace struct {
 	Subtraces    int
 }
 
+func (t *TransactionTrace) IsStaticCall() bool {
+	if t.Action.ActionType() == ActionKindCall && t.Action.(*CallAction).CallType == CallKindStaticCall {
+		return true
+	}
+	return false
+}
+
+func (t *TransactionTrace) IsCreate() bool {
+	return t.Action.ActionType() == ActionKindCreate
+}
+
+func (t *TransactionTrace) IsDelegateCall() bool {
+	return t.Action.ActionType() == ActionKindCall && t.Action.(*CallAction).CallType == CallKindDelegateCall
+}
+
 type ActionKind int
 
 const (

@@ -55,7 +55,6 @@ type CallInfo struct {
 }
 
 type TransactionTraceWithLogs struct {
-	Kind        CallKind
 	Trace       TransactionTrace
 	Logs        []types.Log
 	MsgSender   common.Address
@@ -64,15 +63,15 @@ type TransactionTraceWithLogs struct {
 }
 
 func (t *TransactionTraceWithLogs) IsStaticCall() bool {
-	return t.Kind.IsStaticCall()
+	return t.Trace.IsStaticCall()
 }
 
 func (t *TransactionTraceWithLogs) IsCreate() bool {
-	return t.Kind.IsAnyCreate()
+	return t.Trace.IsCreate()
 }
 
 func (t *TransactionTraceWithLogs) IsDelegateCall() bool {
-	return t.Kind.IsDelegate()
+	return t.Trace.IsDelegateCall()
 }
 
 func (t *TransactionTraceWithLogs) GetCreateOutput() common.Address {
