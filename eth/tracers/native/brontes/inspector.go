@@ -360,7 +360,7 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 		Error:        &instructionErrorMsg,
 		Result:       result,
 		TraceAddress: traceAddress,
-		Subtraces:    len(node.Children),
+		Subtraces:    uint64(len(node.Children)),
 	}
 }
 

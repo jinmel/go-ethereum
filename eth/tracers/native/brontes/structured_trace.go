@@ -17,21 +17,21 @@ type TraceActions interface {
 	GetReturnCallData() []byte
 	IsStaticCall() bool
 	IsCreate() bool
-	ActionType() ActionKind
+	ActionType() ActionType
 	GetCreateOutput() common.Address
 	IsDelegateCall() bool
 }
 
 type DecodedParams struct {
-	FieldName string
-	FieldType string
-	Value     string
+	FieldName string `json:"field_name"`
+	FieldType string `json:"field_type"`
+	Value     string `json:"value"`
 }
 
 type DecodedCallData struct {
-	FunctionName string
-	CallData     []DecodedParams
-	ReturnData   []DecodedParams
+	FunctionName string          `json:"function_name"`
+	CallData     []DecodedParams `json:"call_data"`
+	ReturnData   []DecodedParams `json:"return_data"`
 }
 
 type CallFrameInfo struct {
@@ -81,7 +81,7 @@ func (t *TransactionTraceWithLogs) GetCreateOutput() common.Address {
 	return common.Address{} // default address
 }
 
-func (t *TransactionTraceWithLogs) ActionType() ActionKind {
+func (t *TransactionTraceWithLogs) ActionType() ActionType {
 	return t.Trace.Action.ActionType()
 }
 

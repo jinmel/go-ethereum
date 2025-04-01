@@ -1,6 +1,8 @@
 package brontes
 
 import (
+	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -247,11 +249,11 @@ func (rm *RecordedMemory) MemoryChunks() []string {
 
 // TransactionTrace represents a parity transaction trace.
 type TransactionTrace struct {
-	Action       ActionInterface
-	Error        *string
-	Result       *TraceOutput
-	TraceAddress []uint64
-	Subtraces    int
+	Action       ActionInterface `json:"action"`
+	Error        *string         `json:"error,omitempty"`
+	Result       *TraceOutput    `json:"result,omitempty"`
+	Subtraces    uint64          `json:"subtraces"`
+	TraceAddress []uint64        `json:"traceAddress"`
 }
 
 func (t *TransactionTrace) IsStaticCall() bool {
@@ -269,7 +271,7 @@ func (t *TransactionTrace) IsDelegateCall() bool {
 	return t.Action.ActionType() == ActionKindCall && t.Action.(*CallAction).CallType == CallKindDelegateCall
 }
 
-type ActionKind int
+type ActionType int
 
 const (
 	ActionKindCall = iota
@@ -280,7 +282,7 @@ const (
 
 type ActionInterface interface {
 	GetFromAddr() common.Address
-	ActionType() ActionKind
+	ActionType() ActionType
 	GetToAddr() common.Address
 	GetMsgValue() []byte
 	GetCallData() []byte
@@ -288,35 +290,35 @@ type ActionInterface interface {
 
 // Action represents a call action (or create/selfdestruct).
 type Action struct {
-	Type         ActionKind
+	Type         ActionType
 	Call         *CallAction
 	Create       *CreateAction
 	SelfDestruct *SelfdestructAction
 	Reward       *RewardAction
 }
 
-type RewardType int
+type RewardType string
 
 const (
-	RewardTypeBlock RewardType = iota
-	RewardTypeUncle
+	RewardTypeBlock RewardType = "block"
+	RewardTypeUncle RewardType = "uncle"
 )
 
 // CallAction represents a call action.
 type CallAction struct {
-	From     common.Address
-	To       common.Address
-	Value    *big.Int
-	Gas      uint64
-	Input    []byte
-	CallType CallKind
+	From     common.Address `json:"from"`
+	To       common.Address `json:"to"`
+	Value    *big.Int       `json:"value"`
+	Gas      uint64         `json:"gas"`
+	Input    []byte         `json:"input"`
+	CallType CallKind       `json:"callType"`
 }
 
 func (ca *CallAction) GetFromAddr() common.Address {
 	return ca.From
 }
 
-func (ca *CallAction) ActionType() ActionKind {
+func (ca *CallAction) ActionType() ActionType {
 	return ActionKindCall
 }
 
@@ -334,23 +336,23 @@ func (ca *CallAction) GetCallData() []byte {
 
 // CallOutput represents the output of a call.
 type CallOutput struct {
-	GasUsed uint64
-	Output  []byte
+	GasUsed uint64 `json:"gasUsed"`
+	Output  []byte `json:"output"`
 }
 
 // CreateAction represents a contract creation action.
 type CreateAction struct {
-	From  common.Address
-	Value *big.Int
-	Gas   uint64
-	Init  []byte
+	From  common.Address `json:"from"`
+	Value *big.Int       `json:"value"`
+	Gas   uint64         `json:"gas"`
+	Init  []byte         `json:"init"`
 }
 
 func (ca *CreateAction) GetFromAddr() common.Address {
 	return ca.From
 }
 
-func (ca *CreateAction) ActionType() ActionKind {
+func (ca *CreateAction) ActionType() ActionType {
 	return ActionKindCall
 }
 
@@ -367,16 +369,16 @@ func (ca *CreateAction) GetCallData() []byte {
 }
 
 type RewardAction struct {
-	Author     common.Address
-	RewardType RewardType
-	Value      *big.Int
+	Author     common.Address `json:"author"`
+	RewardType RewardType     `json:"rewardType"`
+	Value      *big.Int       `json:"value"`
 }
 
 func (ra *RewardAction) GetFromAddr() common.Address {
 	return ra.Author
 }
 
-func (ra *RewardAction) ActionType() ActionKind {
+func (ra *RewardAction) ActionType() ActionType {
 	return ActionKindReward
 }
 
@@ -394,23 +396,23 @@ func (ra *RewardAction) GetCallData() []byte {
 
 // CreateOutput represents the output of a contract creation.
 type CreateOutput struct {
-	GasUsed uint64
-	Code    []byte
-	Address common.Address
+	GasUsed uint64         `json:"gasUsed"`
+	Code    []byte         `json:"code"`
+	Address common.Address `json:"address"`
 }
 
 // SelfdestructAction represents a selfdestruct action.
 type SelfdestructAction struct {
-	Address       common.Address
-	RefundAddress common.Address
-	Balance       *big.Int
+	Address       common.Address `json:"address"`
+	RefundAddress common.Address `json:"refundAddress"`
+	Balance       *big.Int       `json:"balance"`
 }
 
 func (sa *SelfdestructAction) GetFromAddr() common.Address {
 	return sa.Address
 }
 
-func (sa *SelfdestructAction) ActionType() ActionKind {
+func (sa *SelfdestructAction) ActionType() ActionType {
 	return ActionKindSelfDestruct
 }
 
@@ -438,6 +440,16 @@ type TraceOutput struct {
 	Type   TraceOutputType
 	Call   *CallOutput
 	Create *CreateOutput
+}
+
+// MarshalJSON implements the json.Marshaler interface
+func (to *TraceOutput) MarshalJSON() ([]byte, error) {
+	if to.Type == TraceOutputTypeCall {
+		return json.Marshal(to.Call)
+	} else if to.Type == TraceOutputTypeCreate {
+		return json.Marshal(to.Create)
+	}
+	return nil, fmt.Errorf("unknown trace output type: %d", to.Type)
 }
 
 // LogCallOrderType distinguishes between a log index and a call (trace node) index.
