@@ -13,6 +13,7 @@ import (
 )
 
 func init() {
+	ethlog.Info("Initializing BrontesTracer")
 	tracers.DefaultDirectory.Register("brontesTracer", newBrontesTracer, false)
 }
 
