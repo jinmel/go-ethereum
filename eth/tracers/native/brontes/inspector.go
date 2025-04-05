@@ -2,14 +2,15 @@ package brontes
 
 import (
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/params/forks"
 	"github.com/holiman/uint256"
-	"golang.org/x/exp/slices"
 )
 
 type StackSnapshotType int
@@ -61,17 +62,18 @@ type BrontesInspector struct {
 
 func NewBrontesInspector(
 	config TracingInspectorConfig,
+	chainConfig *params.ChainConfig,
 	env *tracing.VMContext,
 	tx *types.Transaction,
 	from common.Address,
 ) *BrontesInspector {
 	activePrecompiles := make(map[common.Address]struct{})
-	rules := env.ChainConfig.Rules(env.BlockNumber, env.Random != nil, env.Time, env.ArbOSVersion)
+	rules := chainConfig.Rules(env.BlockNumber, env.Random != nil, env.Time, env.ArbOSVersion)
 	precompiles := vm.ActivePrecompiles(rules)
 	for _, precompile := range precompiles {
 		activePrecompiles[precompile] = struct{}{}
 	}
-	specId := env.ChainConfig.LatestFork(env.Time, env.ArbOSVersion)
+	specId := chainConfig.LatestFork(env.Time, env.ArbOSVersion)
 
 	return &BrontesInspector{
 		Config:             config,

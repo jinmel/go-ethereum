@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/native/brontes"
 	ethlog "github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 func init() {
@@ -19,9 +20,9 @@ func init() {
 }
 
 type brontesTracer struct {
-	ctx       *tracers.Context
-	inspector *brontes.BrontesInspector
-
+	ctx         *tracers.Context
+	inspector   *brontes.BrontesInspector
+	chainConfig *params.ChainConfig
 	// for stopping the tracer
 	interrupt atomic.Bool
 	reason    error
@@ -33,7 +34,7 @@ func newBrontesTracerObject(ctx *tracers.Context, _ json.RawMessage) (*brontesTr
 	}, nil
 }
 
-func newBrontesTracer(ctx *tracers.Context, cfg json.RawMessage) (*tracers.Tracer, error) {
+func newBrontesTracer(ctx *tracers.Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (*tracers.Tracer, error) {
 	t, err := newBrontesTracerObject(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -85,7 +86,7 @@ func (t *brontesTracer) OnExit(depth int, output []byte, gasUsed uint64, err err
 func (t *brontesTracer) OnTxStart(env *tracing.VMContext, tx *types.Transaction, from common.Address) {
 	ethlog.Info("BrontesTracer: Transaction started", "txHash", tx.Hash().Hex(), "from", from.Hex(), "to", tx.To().Hex(), "value", tx.Value(), "gas", tx.Gas(), "blockNumber", env.BlockNumber)
 	// Initialize the BrontesInspector
-	t.inspector = brontes.NewBrontesInspector(brontes.DefaultTracingInspectorConfig, env, tx, from)
+	t.inspector = brontes.NewBrontesInspector(brontes.DefaultTracingInspectorConfig, t.chainConfig, env, tx, from)
 }
 
 func (t *brontesTracer) OnTxEnd(receipt *types.Receipt, err error) {
