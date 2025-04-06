@@ -28,14 +28,15 @@ type brontesTracer struct {
 	reason    error
 }
 
-func newBrontesTracerObject(ctx *tracers.Context, _ json.RawMessage) (*brontesTracer, error) {
+func newBrontesTracerObject(ctx *tracers.Context, _ json.RawMessage, chainConfig *params.ChainConfig) (*brontesTracer, error) {
 	return &brontesTracer{
-		ctx: ctx,
+		ctx:         ctx,
+		chainConfig: chainConfig,
 	}, nil
 }
 
 func newBrontesTracer(ctx *tracers.Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (*tracers.Tracer, error) {
-	t, err := newBrontesTracerObject(ctx, cfg)
+	t, err := newBrontesTracerObject(ctx, cfg, chainConfig)
 	if err != nil {
 		return nil, err
 	}

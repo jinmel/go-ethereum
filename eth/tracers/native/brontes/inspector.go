@@ -271,6 +271,7 @@ func (b *BrontesInspector) TraceAddress(nodes []CallTraceNode, idx int) []uint64
 		graph = append(graph, callIdx)
 		node = parentNode
 	}
+
 	slices.Reverse(graph)
 	return graph
 }
