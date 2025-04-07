@@ -1,7 +1,6 @@
 package brontes
 
 import (
-	"encoding/json"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -132,127 +131,10 @@ func (t *TransactionTraceWithLogs) GetCallFrameInfo() CallFrameInfo {
 }
 
 type TxTrace struct {
-	BlockNumber    uint64
-	Trace          []TransactionTraceWithLogs
-	TxHash         common.Hash
-	GasUsed        *big.Int
-	EffectivePrice *big.Int
-	TxIndex        uint64
-	IsSuccess      bool
-}
-
-// NewTxTrace creates a new TxTrace.
-func NewTxTrace(
-	blockNumber uint64,
-	trace []TransactionTraceWithLogs,
-	txHash [32]byte,
-	txIndex uint64,
-	gasUsed *big.Int,
-	effectivePrice *big.Int,
-	isSuccess bool,
-) *TxTrace {
-	return &TxTrace{
-		BlockNumber:    blockNumber,
-		Trace:          trace,
-		TxHash:         common.BytesToHash(txHash[:]),
-		TxIndex:        txIndex,
-		GasUsed:        gasUsed,
-		EffectivePrice: effectivePrice,
-		IsSuccess:      isSuccess,
-	}
-}
-
-func (t TxTrace) MarshalJSON() ([]byte, error) {
-	// Base map to hold fields
-	m := make(map[string]any)
-	m["block_number"] = t.BlockNumber
-	m["tx_hash"] = t.TxHash.String()
-	m["gas_used"] = t.GasUsed.String()
-	m["effective_price"] = t.EffectivePrice.String()
-	m["tx_index"] = t.TxIndex
-	m["is_success"] = t.IsSuccess
-
-	// Process trace meta fields.
-	var traceIdx []uint64
-	var msgSender []string
-	var errors []any // use any so nil values can be preserved
-	var subtraces []uint64
-	var traceAddress [][]uint64
-
-	for _, traceItem := range t.Trace {
-		traceIdx = append(traceIdx, traceItem.TraceIdx)
-		msgSender = append(msgSender, traceItem.MsgSender.String())
-		// Copy the error field (could be nil)
-		errors = append(errors, traceItem.Trace.Error)
-		subtraces = append(subtraces, uint64(traceItem.Trace.Subtraces))
-		traceAddress = append(traceAddress, traceItem.Trace.TraceAddress)
-	}
-
-	m["trace_meta.trace_idx"] = traceIdx
-	m["trace_meta.msg_sender"] = msgSender
-	m["trace_meta.error"] = errors
-	m["trace_meta.subtraces"] = subtraces
-	m["trace_meta.trace_address"] = traceAddress
-
-	// Process clickhouse decoded call data.
-	decodedData := NewClickhouseDecodedCallData(&t)
-	m["trace_decoded_data.trace_idx"] = decodedData.TraceIdx
-	m["trace_decoded_data.function_name"] = decodedData.FunctionName
-	m["trace_decoded_data.call_data"] = decodedData.CallData
-	m["trace_decoded_data.return_data"] = decodedData.ReturnData
-
-	// Process clickhouse logs.
-	logs := NewClickhouseLogs(&t)
-	m["trace_logs.trace_idx"] = logs.TraceIdx
-	m["trace_logs.log_idx"] = logs.LogIdx
-	m["trace_logs.address"] = logs.Address
-	m["trace_logs.topics"] = logs.Topics
-	m["trace_logs.data"] = logs.Data
-
-	// Process clickhouse create action.
-	createAction := NewClickhouseCreateAction(&t)
-	m["trace_create_actions.trace_idx"] = createAction.TraceIdx
-	m["trace_create_actions.from"] = createAction.From
-	m["trace_create_actions.gas"] = createAction.Gas
-	m["trace_create_actions.init"] = createAction.Init
-	m["trace_create_actions.value"] = createAction.Value
-
-	// Process clickhouse call action.
-	callAction := NewClickhouseCallAction(&t)
-	m["trace_call_actions.trace_idx"] = callAction.TraceIdx
-	m["trace_call_actions.from"] = callAction.From
-	m["trace_call_actions.call_type"] = callAction.CallType
-	m["trace_call_actions.gas"] = callAction.Gas
-	m["trace_call_actions.input"] = callAction.Input
-	m["trace_call_actions.to"] = callAction.To
-	m["trace_call_actions.value"] = callAction.Value
-
-	// Process clickhouse self-destruct action.
-	selfDestructAction := NewClickhouseSelfDestructAction(&t)
-	m["trace_self_destruct_actions.trace_idx"] = selfDestructAction.TraceIdx
-	m["trace_self_destruct_actions.address"] = selfDestructAction.Address
-	m["trace_self_destruct_actions.balance"] = selfDestructAction.Balance
-	m["trace_self_destruct_actions.refund_address"] = selfDestructAction.RefundAddress
-
-	// Process clickhouse reward action.
-	rewardAction := NewClickhouseRewardAction(&t)
-	m["trace_reward_actions.trace_idx"] = rewardAction.TraceIdx
-	m["trace_reward_actions.author"] = rewardAction.Author
-	m["trace_reward_actions.value"] = rewardAction.Value
-	m["trace_reward_actions.reward_type"] = rewardAction.RewardType
-
-	// Process clickhouse call output.
-	callOutput := NewClickhouseCallOutput(&t)
-	m["trace_call_outputs.trace_idx"] = callOutput.TraceIdx
-	m["trace_call_outputs.gas_used"] = callOutput.GasUsed
-	m["trace_call_outputs.output"] = callOutput.Output
-
-	// Process clickhouse create output.
-	createOutput := NewClickhouseCreateOutput(&t)
-	m["trace_create_outputs.trace_idx"] = createOutput.TraceIdx
-	m["trace_create_outputs.address"] = createOutput.Address
-	m["trace_create_outputs.code"] = createOutput.Code
-	m["trace_create_outputs.gas_used"] = createOutput.GasUsed
-
-	return json.Marshal(m)
+	BlockNumber    uint64                     `json:"block_number"`
+	Trace          []TransactionTraceWithLogs `json:"trace"`
+	TxHash         common.Hash                `json:"tx_hash"`
+	GasUsed        *big.Int                   `json:"gas_used"`
+	EffectivePrice *big.Int                   `json:"effective_price"`
+	IsSuccess      bool                       `json:"is_success"`
 }

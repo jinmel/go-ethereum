@@ -1,6 +1,7 @@
 package brontes
 
 import (
+	"errors"
 	"math/big"
 	"slices"
 
@@ -203,24 +204,24 @@ func (b *BrontesInspector) startStep(pc uint64, op byte, gas, cost uint64, scope
 	traceNode.Trace.Steps = append(traceNode.Trace.Steps, step)
 }
 
-func (b *BrontesInspector) IntoTraceResults(info *TransactionInfo, result *ExecutionResult) TxTrace {
-	gasUsed := result.GasUsed()
-	// Convert block number from uint64 to *big.Int
-	blockNumber := *info.BlockNumber
-	trace := b.buildTrace(*info.Hash, new(big.Int).SetUint64(blockNumber))
+func (b *BrontesInspector) IntoTraceResults(tx *types.Transaction, receipt *types.Receipt) (TxTrace, error) {
+	blockNumber := b.VMContext.BlockNumber
+	trace, err := b.buildTrace(tx.Hash(), blockNumber)
+	if err != nil {
+		return TxTrace{}, err
+	}
 
 	// Create a new big.Int for the effective price (initially 0)
-	effectivePrice := new(big.Int)
+	effectivePrice := big.NewInt(0)
 
 	return TxTrace{
-		BlockNumber:    blockNumber,
+		BlockNumber:    blockNumber.Uint64(),
 		Trace:          *trace,
-		TxHash:         *info.Hash,
-		GasUsed:        new(big.Int).SetUint64(gasUsed),
+		TxHash:         b.Transaction.Hash(),
+		GasUsed:        new(big.Int).SetUint64(receipt.GasUsed),
 		EffectivePrice: effectivePrice,
-		TxIndex:        *info.Index,
-		IsSuccess:      result.IsSuccess(),
-	}
+		IsSuccess:      receipt.Status == types.ReceiptStatusSuccessful,
+	}, nil
 }
 
 func (b *BrontesInspector) IterTraceableNodes() []CallTraceNode {
@@ -314,9 +315,9 @@ func findMsgSender(traces []TransactionTraceWithLogs, trace *TransactionTrace) c
 	return msgSender
 }
 
-func (b *BrontesInspector) buildTrace(txHash common.Hash, blockNumber *big.Int) *[]TransactionTraceWithLogs {
+func (b *BrontesInspector) buildTrace(txHash common.Hash, blockNumber *big.Int) (*[]TransactionTraceWithLogs, error) {
 	if len(b.Traces.Nodes()) != 0 {
-		return nil
+		return nil, errors.New("no traces found")
 	}
 
 	traces := make([]TransactionTraceWithLogs, len(b.Traces.Nodes()))
@@ -344,7 +345,7 @@ func (b *BrontesInspector) buildTrace(txHash common.Hash, blockNumber *big.Int) 
 		// TODO: handle selfdestruct. Figure out how to get the result of instructions(opcode) after the execution.
 		// We need an additional hook for this (OnOpcodeEnd?)
 	}
-	return &traces
+	return &traces, nil
 }
 
 func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint64) *TransactionTrace {
