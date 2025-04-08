@@ -28,8 +28,6 @@ type brontesTracer struct {
 	// for stopping the tracer
 	interrupt atomic.Bool
 	reason    error
-	// gas tracking
-	gasLimit uint64
 }
 
 func newBrontesTracerObject(ctx *tracers.Context, _ json.RawMessage, chainConfig *params.ChainConfig) (*brontesTracer, error) {
@@ -92,8 +90,7 @@ func (t *brontesTracer) OnTxStart(env *tracing.VMContext, tx *types.Transaction,
 	ethlog.Debug("BrontesTracer: Transaction started", "txHash", tx.Hash().Hex(), "from", from.Hex(), "to", tx.To().Hex(), "value", tx.Value(), "gas", tx.Gas(), "blockNumber", env.BlockNumber)
 	// Initialize the BrontesInspector
 	t.inspector = brontes.NewBrontesInspector(brontes.DefaultTracingInspectorConfig, t.chainConfig, env, tx, from)
-	// Set gas limit from transaction
-	t.gasLimit = tx.Gas()
+	t.tx = tx
 }
 
 func (t *brontesTracer) OnTxEnd(receipt *types.Receipt, err error) {
