@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	ethlog.Debug("Initializing BrontesTracer")
+	ethlog.Info("Initializing BrontesTracer")
 	tracers.DefaultDirectory.Register("brontesTracer", newBrontesTracer, false)
 }
 
@@ -61,7 +61,7 @@ func (t *brontesTracer) OnOpcode(pc uint64, op byte, gas, cost uint64, scope tra
 	if t.interrupt.Load() {
 		return
 	}
-	ethlog.Debug("BrontesTracer: OnOpcode", "pc", pc, "op", op, "gas", gas, "cost", cost, "scope", scope, "rData", rData, "depth", depth, "err", err)
+	ethlog.Info("BrontesTracer: OnOpcode", "pc", pc, "op", op, "gas", gas, "cost", cost, "scope", scope, "rData", rData, "depth", depth, "err", err)
 	t.inspector.OnOpcode(pc, op, gas, cost, scope, rData, depth, err)
 }
 
@@ -73,7 +73,7 @@ func (t *brontesTracer) OnEnter(depth int, typ byte, from common.Address, to com
 	if t.interrupt.Load() {
 		return
 	}
-	ethlog.Debug("BrontesTracer: OnEnter", "depth", depth, "typ", typ, "from", from.Hex(), "to", to.Hex(), "input", input, "gas", gas, "value", value)
+	ethlog.Info("BrontesTracer: OnEnter", "depth", depth, "typ", typ, "from", from.Hex(), "to", to.Hex(), "input", input, "gas", gas, "value", value)
 	t.inspector.OnEnter(depth, typ, from, to, input, gas, value)
 }
 
@@ -82,24 +82,24 @@ func (t *brontesTracer) OnExit(depth int, output []byte, gasUsed uint64, err err
 	if t.interrupt.Load() {
 		return
 	}
-	ethlog.Debug("BrontesTracer: OnExit", "depth", depth, "output", output, "gasUsed", gasUsed, "err", err, "reverted", reverted)
+	ethlog.Info("BrontesTracer: OnExit", "depth", depth, "output", output, "gasUsed", gasUsed, "err", err, "reverted", reverted)
 	t.inspector.OnExit(depth, output, gasUsed, err, reverted)
 }
 
 func (t *brontesTracer) OnTxStart(env *tracing.VMContext, tx *types.Transaction, from common.Address) {
-	ethlog.Debug("BrontesTracer: Transaction started", "txHash", tx.Hash().Hex(), "from", from.Hex(), "to", tx.To().Hex(), "value", tx.Value(), "gas", tx.Gas(), "blockNumber", env.BlockNumber)
+	ethlog.Info("BrontesTracer: Transaction started", "txHash", tx.Hash().Hex(), "from", from.Hex(), "to", tx.To().Hex(), "value", tx.Value(), "gas", tx.Gas(), "blockNumber", env.BlockNumber)
 	// Initialize the BrontesInspector
 	t.inspector = brontes.NewBrontesInspector(brontes.DefaultTracingInspectorConfig, t.chainConfig, env, tx, from)
 	t.tx = tx
 }
 
 func (t *brontesTracer) OnTxEnd(receipt *types.Receipt, err error) {
-	ethlog.Debug("BrontesTracer: Transaction ended", "txHash", receipt.TxHash.Hex(), "err", err)
+	ethlog.Info("BrontesTracer: Transaction ended", "txHash", receipt.TxHash.Hex(), "err", err)
 	t.receipt = receipt
 }
 
 func (t *brontesTracer) OnLog(log *types.Log) {
-	ethlog.Debug("BrontesTracer: Log", "address", log.Address.Hex(), "topics", log.Topics, "data", log.Data)
+	ethlog.Info("BrontesTracer: Log", "address", log.Address.Hex(), "topics", log.Topics, "data", log.Data)
 	if t.interrupt.Load() {
 		return
 	}
@@ -110,7 +110,7 @@ func (t *brontesTracer) GetResult() (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	ethlog.Debug("BrontesTracer: GetResult", "result", result)
+	ethlog.Info("BrontesTracer: GetResult", "result", result)
 	return json.Marshal(result)
 }
 
