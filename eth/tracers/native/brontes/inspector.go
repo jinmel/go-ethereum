@@ -318,7 +318,7 @@ func findMsgSender(traces []TransactionTraceWithLogs, trace *TransactionTrace) c
 }
 
 func (b *BrontesInspector) buildTrace(txHash common.Hash, blockNumber *big.Int) (*[]TransactionTraceWithLogs, error) {
-	if len(b.Traces.Nodes()) != 0 {
+	if len(b.Traces.Nodes()) == 0 {
 		return nil, errors.New("no traces found")
 	}
 
