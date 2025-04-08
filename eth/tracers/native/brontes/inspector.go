@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/params/forks"
 	"github.com/holiman/uint256"
@@ -126,6 +127,7 @@ func (b *BrontesInspector) popTraceIdx() int {
 
 // startTraceOnCall starts tracking a new call trace.
 func (b *BrontesInspector) startTraceOnCall(address common.Address, inputData []byte, value *big.Int, kind CallKind, depth int, caller common.Address, gasLimit uint64, maybePrecompile *bool) {
+	log.Info("startTraceOnCall", "address", address, "inputData", inputData, "value", value, "kind", kind, "depth", depth, "caller", caller, "gasLimit", gasLimit, "maybePrecompile", maybePrecompile)
 	var pushKind PushTraceKind
 	if maybePrecompile != nil && *maybePrecompile {
 		pushKind = PushTraceKindPushOnly
@@ -429,8 +431,10 @@ func (b *BrontesInspector) AsErrorMsg(node *CallTraceNode) string {
 }
 
 // for both call(), create() and selfdestruct()
+// NOTE: The to, from and value that are different to every callKind are handled by the tracer library.
 func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
 	callKind := FromCallTypeCode(typ)
+	log.Info("OnEnter", "callKind", callKind)
 	op := vm.OpCode(typ)
 	if op == vm.CREATE || op == vm.CREATE2 {
 		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, nil)
@@ -442,6 +446,7 @@ func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to 
 		return
 	}
 
+	// handle Call
 	var maybePrecompile *bool
 	if b.Config.ExcludePrecompileCalls {
 		temp := b.IsPrecompile(to)
