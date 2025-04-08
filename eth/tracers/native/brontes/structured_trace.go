@@ -54,11 +54,11 @@ type CallInfo struct {
 }
 
 type TransactionTraceWithLogs struct {
-	Trace       TransactionTrace
-	Logs        []types.Log
-	MsgSender   common.Address
-	TraceIdx    uint64
-	DecodedData *DecodedCallData
+	Trace       TransactionTrace `json:"trace"`
+	Logs        []types.Log      `json:"logs"`
+	MsgSender   common.Address   `json:"msg_sender"`
+	TraceIdx    uint64           `json:"trace_idx"`
+	DecodedData *DecodedCallData `json:"decoded_data,omitempty"`
 }
 
 func (t *TransactionTraceWithLogs) IsStaticCall() bool {

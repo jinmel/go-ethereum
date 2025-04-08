@@ -285,11 +285,11 @@ const (
 
 // Action represents a call action (or create/selfdestruct).
 type Action struct {
-	Type         ActionType
-	Call         *CallAction
-	Create       *CreateAction
-	SelfDestruct *SelfdestructAction
-	Reward       *RewardAction
+	Type         ActionType          `json:"type"`
+	Call         *CallAction         `json:"call,omitempty"`
+	Create       *CreateAction       `json:"create,omitempty"`
+	SelfDestruct *SelfdestructAction `json:"selfDestruct,omitempty"`
+	Reward       *RewardAction       `json:"reward,omitempty"`
 }
 
 func (a *Action) GetFromAddr() common.Address {
