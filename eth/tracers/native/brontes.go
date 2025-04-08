@@ -61,7 +61,6 @@ func (t *brontesTracer) OnOpcode(pc uint64, op byte, gas, cost uint64, scope tra
 	if t.interrupt.Load() {
 		return
 	}
-	ethlog.Info("BrontesTracer: OnOpcode", "pc", pc, "op", op, "gas", gas, "cost", cost, "scope", scope, "rData", rData, "depth", depth, "err", err)
 	t.inspector.OnOpcode(pc, op, gas, cost, scope, rData, depth, err)
 }
 
@@ -99,7 +98,6 @@ func (t *brontesTracer) OnTxEnd(receipt *types.Receipt, err error) {
 }
 
 func (t *brontesTracer) OnLog(log *types.Log) {
-	ethlog.Info("BrontesTracer: Log", "address", log.Address.Hex(), "topics", log.Topics, "data", log.Data)
 	if t.interrupt.Load() {
 		return
 	}
@@ -110,7 +108,6 @@ func (t *brontesTracer) GetResult() (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	ethlog.Info("BrontesTracer: GetResult", "result", result)
 	return json.Marshal(result)
 }
 
