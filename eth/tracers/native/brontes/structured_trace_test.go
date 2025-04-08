@@ -82,7 +82,7 @@ func TestTransactionTraceWithLogsJSONMarshaling(t *testing.T) {
 		},
 		Trace: TransactionTrace{
 			Action: &Action{
-				Type: ActionType(0), // Call type
+				Type: ActionKindCall, // Call type
 				Call: &CallAction{
 					From:  common.HexToAddress("0x1234567890123456789012345678901234567890"),
 					To:    common.HexToAddress("0x0987654321098765432109876543210987654321"),
@@ -91,7 +91,7 @@ func TestTransactionTraceWithLogsJSONMarshaling(t *testing.T) {
 				},
 			},
 			Result: &TraceOutput{
-				Type: TraceOutputType(0), // Call type
+				Type: TraceOutputTypeCall, // Call type
 				Call: &CallOutput{
 					Output: []byte("test output"),
 				},

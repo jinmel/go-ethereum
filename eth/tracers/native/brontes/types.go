@@ -249,7 +249,7 @@ func (rm *RecordedMemory) MemoryChunks() []string {
 
 // TransactionTrace represents a parity transaction trace.
 type TransactionTrace struct {
-	Action       *Action       `json:"action"`
+	Action       *Action      `json:"action"`
 	Error        *string      `json:"error,omitempty"`
 	Result       *TraceOutput `json:"result,omitempty"`
 	Subtraces    uint64       `json:"subtraces"`
@@ -274,13 +274,13 @@ func (t *TransactionTrace) IsDelegateCall() bool {
 	return false
 }
 
-type ActionType int
+type ActionType string
 
 const (
-	ActionKindCall = iota
-	ActionKindCreate
-	ActionKindSelfDestruct
-	ActionKindReward
+	ActionKindCall         ActionType = "call"
+	ActionKindCreate       ActionType = "create"
+	ActionKindSelfDestruct ActionType = "selfdestruct"
+	ActionKindReward       ActionType = "reward"
 )
 
 // Action represents a call action (or create/selfdestruct).
@@ -479,11 +479,11 @@ func (sa *SelfdestructAction) GetCallData() []byte {
 	return []byte{}
 }
 
-type TraceOutputType int
+type TraceOutputType string
 
 const (
-	TraceOutputTypeCall TraceOutputType = iota
-	TraceOutputTypeCreate
+	TraceOutputTypeCall   TraceOutputType = "call"
+	TraceOutputTypeCreate TraceOutputType = "create"
 )
 
 // TraceOutput represents the output in a trace (either call or create).
@@ -500,7 +500,7 @@ func (to *TraceOutput) MarshalJSON() ([]byte, error) {
 	} else if to.Type == TraceOutputTypeCreate {
 		return json.Marshal(to.Create)
 	}
-	return nil, fmt.Errorf("unknown trace output type: %d", to.Type)
+	return nil, fmt.Errorf("unknown trace output type: %s", to.Type)
 }
 
 // LogCallOrderType distinguishes between a log index and a call (trace node) index.
