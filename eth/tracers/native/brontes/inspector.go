@@ -362,7 +362,7 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 	instructionErrorMsg := b.AsErrorMsg(node)
 
 	return &TransactionTrace{
-		Action:       *action,
+		Action:       action,
 		Error:        &instructionErrorMsg,
 		Result:       result,
 		TraceAddress: traceAddress,

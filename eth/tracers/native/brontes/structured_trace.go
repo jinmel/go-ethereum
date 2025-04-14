@@ -1,9 +1,11 @@
 package brontes
 
 import (
+	"encoding/json"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -138,4 +140,17 @@ type TxTrace struct {
 	EffectivePrice *big.Int                   `json:"effective_price"`
 	TxIndex        int                        `json:"tx_index"`
 	IsSuccess      bool                       `json:"is_success"`
+}
+
+func (t *TxTrace) MarshalJSON() ([]byte, error) {
+	type Alias TxTrace
+	return json.Marshal(&struct {
+		GasUsed        *hexutil.Big `json:"gas_used"`
+		EffectivePrice *hexutil.Big `json:"effective_price"`
+		*Alias
+	}{
+		GasUsed:        (*hexutil.Big)(t.GasUsed),
+		EffectivePrice: (*hexutil.Big)(t.EffectivePrice),
+		Alias:          (*Alias)(t),
+	})
 }

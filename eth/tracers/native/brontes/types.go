@@ -101,15 +101,15 @@ func (ctn *CallTraceNode) IsSelfdestruct() bool {
 // ---------------------------------------------------------------------
 
 // CallKind is an enumeration of call types.
-type CallKind int
+type CallKind string
 
 const (
-	CallKindCall CallKind = iota
-	CallKindStaticCall
-	CallKindCallCode
-	CallKindDelegateCall
-	CallKindCreate
-	CallKindCreate2
+	CallKindCall         = "call"
+	CallKindStaticCall   = "static"
+	CallKindCallCode     = "callcode"
+	CallKindDelegateCall = "delegatecall"
+	CallKindCreate       = "create"
+	CallKindCreate2      = "create2"
 )
 
 func FromCallTypeCode(typ byte) CallKind {
@@ -250,27 +250,16 @@ func (rm *RecordedMemory) MemoryChunks() []string {
 
 // TransactionTrace represents a parity transaction trace.
 type TransactionTrace struct {
-	Action                    // Embed Action directly to flatten its fields
+	Type         ActionType   `json:"type"`
+	Action       *Action      `json:"action"`
 	Error        *string      `json:"error,omitempty"`
 	Result       *TraceOutput `json:"result,omitempty"`
 	Subtraces    uint         `json:"subtraces"`
 	TraceAddress []uint       `json:"traceAddress"`
-	// Flattened fields from Action
-	From          common.Address `json:"from,omitempty"`
-	To            common.Address `json:"to,omitempty"`
-	Value         *big.Int       `json:"value,omitempty"`
-	Gas           uint64         `json:"gas,omitempty"`
-	Input         hexutil.Bytes  `json:"input,omitempty"`
-	CallType      CallKind       `json:"callType,omitempty"`
-	Init          hexutil.Bytes  `json:"init,omitempty"`
-	RefundAddress common.Address `json:"refundAddress,omitempty"`
-	Balance       *big.Int       `json:"balance,omitempty"`
-	Author        common.Address `json:"author,omitempty"`
-	RewardType    RewardType     `json:"rewardType,omitempty"`
 }
 
 func (t *TransactionTrace) IsStaticCall() bool {
-	if t.Type == ActionKindCall && t.Call != nil && t.Call.CallType == CallKindStaticCall {
+	if t.Type == ActionKindCall && t.Action != nil && t.Action.Call != nil && t.Action.Call.CallType == CallKindStaticCall {
 		return true
 	}
 	return false
@@ -281,7 +270,7 @@ func (t *TransactionTrace) IsCreate() bool {
 }
 
 func (t *TransactionTrace) IsDelegateCall() bool {
-	if t.Type == ActionKindCall && t.Call != nil && t.Call.CallType == CallKindDelegateCall {
+	if t.Type == ActionKindCall && t.Action != nil && t.Action.Call != nil && t.Action.Call.CallType == CallKindDelegateCall {
 		return true
 	}
 	return false
@@ -303,6 +292,49 @@ type Action struct {
 	Create       *CreateAction       `json:"-"`
 	SelfDestruct *SelfdestructAction `json:"-"`
 	Reward       *RewardAction       `json:"-"`
+}
+
+func (a *Action) MarshalJSON() ([]byte, error) {
+	type actionMarshaling struct {
+		Author        *common.Address `json:"author,omitempty"`
+		RewardType    string          `json:"rewardType,omitempty"`
+		Address       *common.Address `json:"address,omitempty"`
+		Balance       *hexutil.Big    `json:"balance,omitempty"`
+		CallType      string          `json:"callType,omitempty"`
+		From          *common.Address `json:"from,omitempty"`
+		Gas           *hexutil.Uint64 `json:"gas,omitempty"`
+		Init          *hexutil.Bytes  `json:"init,omitempty"`
+		Input         *hexutil.Bytes  `json:"input,omitempty"`
+		RefundAddress *common.Address `json:"refundAddress,omitempty"`
+		To            *common.Address `json:"to,omitempty"`
+		Value         *hexutil.Big    `json:"value,omitempty"`
+	}
+
+	am := actionMarshaling{}
+
+	switch a.Type {
+	case ActionKindCall:
+		am.CallType = a.Call.CallType.String()
+		am.From = &a.Call.From
+		am.To = &a.Call.To
+		am.Value = (*hexutil.Big)(a.Call.Value)
+		am.Gas = (*hexutil.Uint64)(&a.Call.Gas)
+		am.Input = &a.Call.Input
+	case ActionKindCreate:
+		am.From = &a.Create.From
+		am.Value = (*hexutil.Big)(a.Create.Value)
+		am.Gas = (*hexutil.Uint64)(&a.Create.Gas)
+		am.Init = &a.Create.Init
+	case ActionKindSelfDestruct:
+		am.Address = &a.SelfDestruct.Address
+		am.Balance = (*hexutil.Big)(a.SelfDestruct.Balance)
+		am.RefundAddress = &a.SelfDestruct.RefundAddress
+	case ActionKindReward:
+		am.Author = &a.Reward.Author
+		am.RewardType = string(a.Reward.RewardType)
+		am.Value = (*hexutil.Big)(a.Reward.Value)
+	}
+	return json.Marshal(am)
 }
 
 func (a *Action) GetFromAddr() common.Address {
@@ -611,48 +643,4 @@ func (er *ExecutionResult) GasUsed() uint64 {
 
 func (er *ExecutionResult) IsSuccess() bool {
 	return er.Status == ExecutionSuccess
-}
-
-// MarshalJSON implements the json.Marshaler interface for TransactionTrace
-func (t *TransactionTrace) MarshalJSON() ([]byte, error) {
-	type Alias TransactionTrace
-	aux := &struct {
-		*Alias
-	}{
-		Alias: (*Alias)(t),
-	}
-
-	// Flatten the fields based on the action type
-	switch t.Type {
-	case ActionKindCall:
-		if t.Call != nil {
-			aux.From = t.Call.From
-			aux.To = t.Call.To
-			aux.Value = t.Call.Value
-			aux.Gas = t.Call.Gas
-			aux.Input = t.Call.Input
-			aux.CallType = t.Call.CallType
-		}
-	case ActionKindCreate:
-		if t.Create != nil {
-			aux.From = t.Create.From
-			aux.Value = t.Create.Value
-			aux.Gas = t.Create.Gas
-			aux.Init = t.Create.Init
-		}
-	case ActionKindSelfDestruct:
-		if t.SelfDestruct != nil {
-			aux.From = t.SelfDestruct.Address
-			aux.RefundAddress = t.SelfDestruct.RefundAddress
-			aux.Balance = t.SelfDestruct.Balance
-		}
-	case ActionKindReward:
-		if t.Reward != nil {
-			aux.Author = t.Reward.Author
-			aux.Value = t.Reward.Value
-			aux.RewardType = t.Reward.RewardType
-		}
-	}
-
-	return json.Marshal(aux)
 }
