@@ -250,7 +250,7 @@ func (rm *RecordedMemory) MemoryChunks() []string {
 
 // TransactionTrace represents a parity transaction trace.
 type TransactionTrace struct {
-	Action       *Action      `json:"action"`
+	Action                    // Embed Action directly to flatten its fields
 	Error        *string      `json:"error,omitempty"`
 	Result       *TraceOutput `json:"result,omitempty"`
 	Subtraces    uint         `json:"subtraces"`
@@ -258,18 +258,18 @@ type TransactionTrace struct {
 }
 
 func (t *TransactionTrace) IsStaticCall() bool {
-	if t.Action.Type == ActionKindCall && t.Action.Call.CallType == CallKindStaticCall {
+	if t.Type == ActionKindCall && t.Call != nil && t.Call.CallType == CallKindStaticCall {
 		return true
 	}
 	return false
 }
 
 func (t *TransactionTrace) IsCreate() bool {
-	return t.Action.Type == ActionKindCreate
+	return t.Type == ActionKindCreate
 }
 
 func (t *TransactionTrace) IsDelegateCall() bool {
-	if t.Action.Type == ActionKindCall && t.Action.Call.CallType == CallKindDelegateCall {
+	if t.Type == ActionKindCall && t.Call != nil && t.Call.CallType == CallKindDelegateCall {
 		return true
 	}
 	return false
@@ -286,7 +286,7 @@ const (
 
 // Action represents a call action (or create/selfdestruct).
 type Action struct {
-	Type         ActionType          `json:"type"`
+	Type         ActionType          `json:"-"` // should not be serialized as it is only used for internal purposes
 	Call         *CallAction         `json:"call,omitempty"`
 	Create       *CreateAction       `json:"create,omitempty"`
 	SelfDestruct *SelfdestructAction `json:"selfDestruct,omitempty"`

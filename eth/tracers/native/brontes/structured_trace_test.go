@@ -81,7 +81,7 @@ func TestTransactionTraceWithLogsJSONMarshaling(t *testing.T) {
 			},
 		},
 		Trace: TransactionTrace{
-			Action: &Action{
+			Action: Action{
 				Type: ActionKindCall, // Call type
 				Call: &CallAction{
 					From:  common.HexToAddress("0x1234567890123456789012345678901234567890"),
