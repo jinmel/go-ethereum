@@ -259,18 +259,18 @@ type TransactionTrace struct {
 }
 
 func (t *TransactionTrace) IsStaticCall() bool {
-	if t.Type == ActionKindCall && t.Action != nil && t.Action.Call != nil && t.Action.Call.CallType == CallKindStaticCall {
+	if t.Type == ActionTypeCall && t.Action != nil && t.Action.Call != nil && t.Action.Call.CallType == CallKindStaticCall {
 		return true
 	}
 	return false
 }
 
 func (t *TransactionTrace) IsCreate() bool {
-	return t.Type == ActionKindCreate
+	return t.Type == ActionTypeCreate
 }
 
 func (t *TransactionTrace) IsDelegateCall() bool {
-	if t.Type == ActionKindCall && t.Action != nil && t.Action.Call != nil && t.Action.Call.CallType == CallKindDelegateCall {
+	if t.Type == ActionTypeCall && t.Action != nil && t.Action.Call != nil && t.Action.Call.CallType == CallKindDelegateCall {
 		return true
 	}
 	return false
@@ -279,10 +279,10 @@ func (t *TransactionTrace) IsDelegateCall() bool {
 type ActionType string
 
 const (
-	ActionKindCall         ActionType = "call"
-	ActionKindCreate       ActionType = "create"
-	ActionKindSelfDestruct ActionType = "selfdestruct"
-	ActionKindReward       ActionType = "reward"
+	ActionTypeCall         ActionType = "call"
+	ActionTypeCreate       ActionType = "create"
+	ActionTypeSelfDestruct ActionType = "selfdestruct"
+	ActionTypeReward       ActionType = "reward"
 )
 
 // Action represents a call action (or create/selfdestruct).
@@ -313,23 +313,23 @@ func (a *Action) MarshalJSON() ([]byte, error) {
 	am := actionMarshaling{}
 
 	switch a.Type {
-	case ActionKindCall:
+	case ActionTypeCall:
 		am.CallType = a.Call.CallType.String()
 		am.From = &a.Call.From
 		am.To = &a.Call.To
 		am.Value = (*hexutil.Big)(a.Call.Value)
 		am.Gas = (*hexutil.Uint64)(&a.Call.Gas)
 		am.Input = &a.Call.Input
-	case ActionKindCreate:
+	case ActionTypeCreate:
 		am.From = &a.Create.From
 		am.Value = (*hexutil.Big)(a.Create.Value)
 		am.Gas = (*hexutil.Uint64)(&a.Create.Gas)
 		am.Init = &a.Create.Init
-	case ActionKindSelfDestruct:
+	case ActionTypeSelfDestruct:
 		am.Address = &a.SelfDestruct.Address
 		am.Balance = (*hexutil.Big)(a.SelfDestruct.Balance)
 		am.RefundAddress = &a.SelfDestruct.RefundAddress
-	case ActionKindReward:
+	case ActionTypeReward:
 		am.Author = &a.Reward.Author
 		am.RewardType = string(a.Reward.RewardType)
 		am.Value = (*hexutil.Big)(a.Reward.Value)
@@ -339,13 +339,13 @@ func (a *Action) MarshalJSON() ([]byte, error) {
 
 func (a *Action) GetFromAddr() common.Address {
 	switch a.Type {
-	case ActionKindCall:
+	case ActionTypeCall:
 		return a.Call.From
-	case ActionKindCreate:
+	case ActionTypeCreate:
 		return a.Create.From
-	case ActionKindSelfDestruct:
+	case ActionTypeSelfDestruct:
 		return a.SelfDestruct.Address
-	case ActionKindReward:
+	case ActionTypeReward:
 		return a.Reward.Author
 	}
 	panic("unknown action type")
@@ -353,13 +353,13 @@ func (a *Action) GetFromAddr() common.Address {
 
 func (a *Action) GetToAddr() common.Address {
 	switch a.Type {
-	case ActionKindCall:
+	case ActionTypeCall:
 		return a.Call.To
-	case ActionKindCreate:
+	case ActionTypeCreate:
 		return common.Address{}
-	case ActionKindSelfDestruct:
+	case ActionTypeSelfDestruct:
 		return a.SelfDestruct.Address
-	case ActionKindReward:
+	case ActionTypeReward:
 		return common.Address{}
 	}
 	panic("unknown action type")
@@ -367,13 +367,13 @@ func (a *Action) GetToAddr() common.Address {
 
 func (a *Action) GetMsgValue() []byte {
 	switch a.Type {
-	case ActionKindCall:
+	case ActionTypeCall:
 		return a.Call.Value.Bytes()
-	case ActionKindCreate:
+	case ActionTypeCreate:
 		return a.Create.Value.Bytes()
-	case ActionKindSelfDestruct:
+	case ActionTypeSelfDestruct:
 		return []byte{}
-	case ActionKindReward:
+	case ActionTypeReward:
 		return a.Reward.Value.Bytes()
 	}
 	panic("unknown action type")
@@ -381,13 +381,13 @@ func (a *Action) GetMsgValue() []byte {
 
 func (a *Action) GetCallData() []byte {
 	switch a.Type {
-	case ActionKindCall:
+	case ActionTypeCall:
 		return a.Call.Input
-	case ActionKindCreate:
+	case ActionTypeCreate:
 		return a.Create.Init
-	case ActionKindSelfDestruct:
+	case ActionTypeSelfDestruct:
 		return []byte{}
-	case ActionKindReward:
+	case ActionTypeReward:
 		return []byte{}
 	}
 	panic("unknown action type")
@@ -415,7 +415,7 @@ func (ca *CallAction) GetFromAddr() common.Address {
 }
 
 func (ca *CallAction) ActionType() ActionType {
-	return ActionKindCall
+	return ActionTypeCall
 }
 
 func (ca *CallAction) GetToAddr() common.Address {
@@ -449,7 +449,7 @@ func (ca *CreateAction) GetFromAddr() common.Address {
 }
 
 func (ca *CreateAction) ActionType() ActionType {
-	return ActionKindCall
+	return ActionTypeCall
 }
 
 func (ca *CreateAction) GetToAddr() common.Address {
@@ -475,7 +475,7 @@ func (ra *RewardAction) GetFromAddr() common.Address {
 }
 
 func (ra *RewardAction) ActionType() ActionType {
-	return ActionKindReward
+	return ActionTypeReward
 }
 
 func (ra *RewardAction) GetToAddr() common.Address {
@@ -509,7 +509,7 @@ func (sa *SelfdestructAction) GetFromAddr() common.Address {
 }
 
 func (sa *SelfdestructAction) ActionType() ActionType {
-	return ActionKindSelfDestruct
+	return ActionTypeSelfDestruct
 }
 
 func (sa *SelfdestructAction) GetToAddr() common.Address {

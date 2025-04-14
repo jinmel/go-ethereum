@@ -34,7 +34,7 @@ func TestPrintTxTrace(t *testing.T) {
 					},
 				},
 				Trace: TransactionTrace{
-					Type: ActionKindCall,
+					Type: ActionTypeCall,
 					Action: &Action{
 						Call: &CallAction{
 							From:     common.HexToAddress("0x1111111111111111111111111111111111111111"),
@@ -85,9 +85,9 @@ func TestPrintTxTraceWithReward(t *testing.T) {
 				MsgSender: common.HexToAddress("0x1111111111111111111111111111111111111111"),
 				Logs:      []types.Log{},
 				Trace: TransactionTrace{
-					Type: ActionKindReward,
+					Type: ActionTypeReward,
 					Action: &Action{
-						Type: ActionKindReward,
+						Type: ActionTypeReward,
 						Reward: &RewardAction{
 							Author:     common.HexToAddress("0x4444444444444444444444444444444444444444"),
 							RewardType: RewardTypeBlock,

@@ -101,7 +101,7 @@ func NewClickhouseCallAction(value *TxTrace) *ClickhouseCallAction {
 	result := &ClickhouseCallAction{}
 	for _, trace := range value.Trace {
 
-		if trace.Trace.Action.Type == ActionKindCall {
+		if trace.Trace.Action.Type == ActionTypeCall {
 			result.TraceIdx = append(result.TraceIdx, trace.TraceIdx)
 			result.From = append(result.From, trace.Trace.Action.Call.From.String())
 			result.CallType = append(result.CallType, trace.Trace.Action.Call.CallType.String())
@@ -129,7 +129,7 @@ type ClickhouseSelfDestructAction struct {
 func NewClickhouseSelfDestructAction(value *TxTrace) *ClickhouseSelfDestructAction {
 	result := &ClickhouseSelfDestructAction{}
 	for _, trace := range value.Trace {
-		if trace.Trace.Action.Type == ActionKindSelfDestruct {
+		if trace.Trace.Action.Type == ActionTypeSelfDestruct {
 			result.TraceIdx = append(result.TraceIdx, trace.TraceIdx)
 			result.Address = append(result.Address, trace.Trace.Action.SelfDestruct.Address.String())
 			result.RefundAddress = append(result.RefundAddress, trace.Trace.Action.SelfDestruct.RefundAddress.String())
@@ -155,7 +155,7 @@ type ClickhouseRewardAction struct {
 func NewClickhouseRewardAction(value *TxTrace) *ClickhouseRewardAction {
 	result := &ClickhouseRewardAction{}
 	for _, trace := range value.Trace {
-		if trace.Trace.Action.Type == ActionKindReward {
+		if trace.Trace.Action.Type == ActionTypeReward {
 			result.TraceIdx = append(result.TraceIdx, trace.TraceIdx)
 			result.Author = append(result.Author, trace.Trace.Action.Reward.Author.String())
 

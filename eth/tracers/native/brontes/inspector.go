@@ -283,7 +283,7 @@ func (b *BrontesInspector) TraceAddress(nodes []CallTraceNode, idx int) []uint {
 func findMsgSender(traces []TransactionTraceWithLogs, trace *TransactionTrace) common.Address {
 	var msgSender common.Address
 
-	if trace.Action.Type == ActionKindCall {
+	if trace.Action.Type == ActionTypeCall {
 
 		callAction := trace.Action.Call
 
@@ -291,14 +291,14 @@ func findMsgSender(traces []TransactionTraceWithLogs, trace *TransactionTrace) c
 			var prevTrace *TransactionTraceWithLogs
 			for i := len(traces) - 1; i >= 0; i-- {
 				n := &traces[i]
-				if n.Trace.Action.Type == ActionKindCall {
+				if n.Trace.Action.Type == ActionTypeCall {
 					if n.Trace.Action.Call.CallType != CallKindDelegateCall {
 						prevTrace = n
 						break
 					}
 				}
 
-				if n.Trace.Action.Type == ActionKindCreate {
+				if n.Trace.Action.Type == ActionTypeCreate {
 					prevTrace = n
 					break
 				}
@@ -381,7 +381,7 @@ func (b *BrontesInspector) ParityAction(node *CallTraceNode) *Action {
 			CallType: node.Trace.Kind,
 		}
 		return &Action{
-			Type: ActionKindCall,
+			Type: ActionTypeCall,
 			Call: inner,
 		}
 	} else if node.Trace.Kind.IsAnyCreate() {
@@ -392,7 +392,7 @@ func (b *BrontesInspector) ParityAction(node *CallTraceNode) *Action {
 			Init:  node.Trace.Data,
 		}
 		return &Action{
-			Type:   ActionKindCreate,
+			Type:   ActionTypeCreate,
 			Create: inner,
 		}
 	}
