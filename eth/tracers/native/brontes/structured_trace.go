@@ -136,5 +136,6 @@ type TxTrace struct {
 	TxHash         common.Hash                `json:"tx_hash"`
 	GasUsed        *big.Int                   `json:"gas_used"`
 	EffectivePrice *big.Int                   `json:"effective_price"`
+	TxIndex        int                        `json:"tx_index"`
 	IsSuccess      bool                       `json:"is_success"`
 }

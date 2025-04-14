@@ -206,7 +206,7 @@ func (b *BrontesInspector) startStep(pc uint64, op byte, gas, cost uint64, scope
 	traceNode.Trace.Steps = append(traceNode.Trace.Steps, step)
 }
 
-func (b *BrontesInspector) IntoTraceResults(tx *types.Transaction, receipt *types.Receipt) (TxTrace, error) {
+func (b *BrontesInspector) IntoTraceResults(tx *types.Transaction, receipt *types.Receipt, txIndex int) (TxTrace, error) {
 	blockNumber := b.VMContext.BlockNumber
 	trace, err := b.buildTrace(tx.Hash(), blockNumber)
 	if err != nil {
@@ -220,6 +220,7 @@ func (b *BrontesInspector) IntoTraceResults(tx *types.Transaction, receipt *type
 		BlockNumber:    blockNumber.Uint64(),
 		Trace:          *trace,
 		TxHash:         b.Transaction.Hash(),
+		TxIndex:        txIndex,
 		GasUsed:        new(big.Int).SetUint64(receipt.GasUsed),
 		EffectivePrice: effectivePrice,
 		IsSuccess:      receipt.Status == types.ReceiptStatusSuccessful,
