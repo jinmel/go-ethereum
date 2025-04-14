@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
 )
@@ -17,7 +18,7 @@ import (
 // LogData represents log data with topics and data.
 type LogData struct {
 	Topics []common.Hash
-	Data   []byte
+	Data   hexutil.Bytes
 }
 
 // ---------------------------------------------------------------------
@@ -34,8 +35,8 @@ type CallTrace struct {
 	SelfdestructRefundTarget *common.Address
 	Kind                     CallKind
 	Value                    *big.Int
-	Data                     []byte
-	Output                   []byte
+	Data                     hexutil.Bytes
+	Output                   hexutil.Bytes
 	GasUsed                  uint64
 	GasLimit                 uint64
 	Reverted                 bool
@@ -214,7 +215,7 @@ type StorageChange struct {
 
 // RecordedMemory wraps captured execution memory.
 type RecordedMemory struct {
-	Data []byte
+	Data hexutil.Bytes
 }
 
 func NewRecordedMemory(mem []byte) RecordedMemory {
@@ -361,7 +362,7 @@ type CallAction struct {
 	To       common.Address `json:"to"`
 	Value    *big.Int       `json:"value"`
 	Gas      uint64         `json:"gas"`
-	Input    []byte         `json:"input"`
+	Input    hexutil.Bytes  `json:"input"`
 	CallType CallKind       `json:"callType"`
 }
 
@@ -387,8 +388,8 @@ func (ca *CallAction) GetCallData() []byte {
 
 // CallOutput represents the output of a call.
 type CallOutput struct {
-	GasUsed uint64 `json:"gasUsed"`
-	Output  []byte `json:"output"`
+	GasUsed uint64        `json:"gasUsed"`
+	Output  hexutil.Bytes `json:"output"`
 }
 
 // CreateAction represents a contract creation action.
@@ -396,7 +397,7 @@ type CreateAction struct {
 	From  common.Address `json:"from"`
 	Value *big.Int       `json:"value"`
 	Gas   uint64         `json:"gas"`
-	Init  []byte         `json:"init"`
+	Init  hexutil.Bytes  `json:"init"`
 }
 
 func (ca *CreateAction) GetFromAddr() common.Address {
@@ -448,7 +449,7 @@ func (ra *RewardAction) GetCallData() []byte {
 // CreateOutput represents the output of a contract creation.
 type CreateOutput struct {
 	GasUsed uint64         `json:"gasUsed"`
-	Code    []byte         `json:"code"`
+	Code    hexutil.Bytes  `json:"code"`
 	Address common.Address `json:"address"`
 }
 
@@ -549,7 +550,7 @@ type SuccessReason int
 const (
 	SuccessReasonStop = iota
 	SuccessReasonReturn
-	SuccessReasonSelfDestructj
+	SuccessReasonSelfDestruct
 )
 
 type ExeuctionResultSuccess struct {
@@ -562,7 +563,7 @@ type ExeuctionResultSuccess struct {
 
 type ExeuctionResultRevert struct {
 	GasUsed uint64
-	Output  []byte
+	Output  hexutil.Bytes
 }
 
 type HaltReason int
