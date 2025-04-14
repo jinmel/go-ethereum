@@ -255,6 +255,18 @@ type TransactionTrace struct {
 	Result       *TraceOutput `json:"result,omitempty"`
 	Subtraces    uint         `json:"subtraces"`
 	TraceAddress []uint       `json:"traceAddress"`
+	// Flattened fields from Action
+	From          common.Address `json:"from,omitempty"`
+	To            common.Address `json:"to,omitempty"`
+	Value         *big.Int       `json:"value,omitempty"`
+	Gas           uint64         `json:"gas,omitempty"`
+	Input         hexutil.Bytes  `json:"input,omitempty"`
+	CallType      CallKind       `json:"callType,omitempty"`
+	Init          hexutil.Bytes  `json:"init,omitempty"`
+	RefundAddress common.Address `json:"refundAddress,omitempty"`
+	Balance       *big.Int       `json:"balance,omitempty"`
+	Author        common.Address `json:"author,omitempty"`
+	RewardType    RewardType     `json:"rewardType,omitempty"`
 }
 
 func (t *TransactionTrace) IsStaticCall() bool {
@@ -286,11 +298,11 @@ const (
 
 // Action represents a call action (or create/selfdestruct).
 type Action struct {
-	Type         ActionType          `json:"-"` // should not be serialized as it is only used for internal purposes
-	Call         *CallAction         `json:"call,omitempty"`
-	Create       *CreateAction       `json:"create,omitempty"`
-	SelfDestruct *SelfdestructAction `json:"selfDestruct,omitempty"`
-	Reward       *RewardAction       `json:"reward,omitempty"`
+	Type         ActionType          `json:"-"`
+	Call         *CallAction         `json:"-"`
+	Create       *CreateAction       `json:"-"`
+	SelfDestruct *SelfdestructAction `json:"-"`
+	Reward       *RewardAction       `json:"-"`
 }
 
 func (a *Action) GetFromAddr() common.Address {
@@ -599,4 +611,48 @@ func (er *ExecutionResult) GasUsed() uint64 {
 
 func (er *ExecutionResult) IsSuccess() bool {
 	return er.Status == ExecutionSuccess
+}
+
+// MarshalJSON implements the json.Marshaler interface for TransactionTrace
+func (t *TransactionTrace) MarshalJSON() ([]byte, error) {
+	type Alias TransactionTrace
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(t),
+	}
+
+	// Flatten the fields based on the action type
+	switch t.Type {
+	case ActionKindCall:
+		if t.Call != nil {
+			aux.From = t.Call.From
+			aux.To = t.Call.To
+			aux.Value = t.Call.Value
+			aux.Gas = t.Call.Gas
+			aux.Input = t.Call.Input
+			aux.CallType = t.Call.CallType
+		}
+	case ActionKindCreate:
+		if t.Create != nil {
+			aux.From = t.Create.From
+			aux.Value = t.Create.Value
+			aux.Gas = t.Create.Gas
+			aux.Init = t.Create.Init
+		}
+	case ActionKindSelfDestruct:
+		if t.SelfDestruct != nil {
+			aux.From = t.SelfDestruct.Address
+			aux.RefundAddress = t.SelfDestruct.RefundAddress
+			aux.Balance = t.SelfDestruct.Balance
+		}
+	case ActionKindReward:
+		if t.Reward != nil {
+			aux.Author = t.Reward.Author
+			aux.Value = t.Reward.Value
+			aux.RewardType = t.Reward.RewardType
+		}
+	}
+
+	return json.Marshal(aux)
 }
