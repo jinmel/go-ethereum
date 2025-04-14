@@ -359,11 +359,11 @@ const (
 // CallAction represents a call action.
 type CallAction struct {
 	From     common.Address `json:"from"`
-	To       common.Address `json:"to"`
-	Value    *big.Int       `json:"value"`
+	CallType CallKind       `json:"callType"`
 	Gas      uint64         `json:"gas"`
 	Input    hexutil.Bytes  `json:"input"`
-	CallType CallKind       `json:"callType"`
+	To       common.Address `json:"to"`
+	Value    *big.Int       `json:"value"`
 }
 
 func (ca *CallAction) GetFromAddr() common.Address {
