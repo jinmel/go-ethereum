@@ -253,8 +253,8 @@ type TransactionTrace struct {
 	Action       *Action      `json:"action"`
 	Error        *string      `json:"error,omitempty"`
 	Result       *TraceOutput `json:"result,omitempty"`
-	Subtraces    uint64       `json:"subtraces"`
-	TraceAddress []uint64     `json:"traceAddress"`
+	Subtraces    uint         `json:"subtraces"`
+	TraceAddress []uint       `json:"traceAddress"`
 }
 
 func (t *TransactionTrace) IsStaticCall() bool {

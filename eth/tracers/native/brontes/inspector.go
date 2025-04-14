@@ -239,12 +239,12 @@ func (b *BrontesInspector) IterTraceableNodes() []CallTraceNode {
 	return traceableNodes
 }
 
-func (b *BrontesInspector) TraceAddress(nodes []CallTraceNode, idx int) []uint64 {
+func (b *BrontesInspector) TraceAddress(nodes []CallTraceNode, idx int) []uint {
 	if idx == 0 {
-		return []uint64{}
+		return []uint{}
 	}
 
-	graph := make([]uint64, 0)
+	graph := make([]uint, 0)
 	node := nodes[idx]
 
 	if node.Trace.MaybePrecompile != nil && *node.Trace.MaybePrecompile {
@@ -259,10 +259,10 @@ func (b *BrontesInspector) TraceAddress(nodes []CallTraceNode, idx int) []uint64
 		found := false
 
 		// check if childIdx is in parentNode.Children
-		var callIdx uint64
+		var callIdx uint
 		for i, child := range parentNode.Children {
 			if child == childIdx {
-				callIdx = uint64(i)
+				callIdx = uint(i)
 				found = true
 				break
 			}
@@ -351,7 +351,7 @@ func (b *BrontesInspector) buildTrace(txHash common.Hash, blockNumber *big.Int) 
 	return &traces, nil
 }
 
-func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint64) *TransactionTrace {
+func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint) *TransactionTrace {
 	action := b.ParityAction(node)
 	var result *TraceOutput
 	if node.Trace.IsError() && !node.Trace.IsRevert() {
@@ -366,7 +366,7 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 		Error:        &instructionErrorMsg,
 		Result:       result,
 		TraceAddress: traceAddress,
-		Subtraces:    uint64(len(node.Children)),
+		Subtraces:    uint(len(node.Children)),
 	}
 }
 
