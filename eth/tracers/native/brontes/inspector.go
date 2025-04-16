@@ -206,17 +206,17 @@ func (b *BrontesInspector) startStep(pc uint64, op byte, gas, cost uint64, scope
 	traceNode.Trace.Steps = append(traceNode.Trace.Steps, step)
 }
 
-func (b *BrontesInspector) IntoTraceResults(tx *types.Transaction, receipt *types.Receipt, txIndex int) (TxTrace, error) {
+func (b *BrontesInspector) IntoTraceResults(tx *types.Transaction, receipt *types.Receipt, txIndex int) (*TxTrace, error) {
 	blockNumber := b.VMContext.BlockNumber
 	trace, err := b.buildTrace(tx.Hash(), blockNumber)
 	if err != nil {
-		return TxTrace{}, err
+		return nil, err
 	}
 
 	// Create a new big.Int for the effective price (initially 0)
 	effectivePrice := big.NewInt(0)
 
-	return TxTrace{
+	return &TxTrace{
 		BlockNumber:    blockNumber.Uint64(),
 		Trace:          *trace,
 		TxHash:         b.Transaction.Hash(),
@@ -441,12 +441,10 @@ func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to 
 	op := vm.OpCode(typ)
 	if op == vm.CREATE || op == vm.CREATE2 {
 		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, nil)
-		return
 	} else if op == vm.SELFDESTRUCT {
 		traceIdx := b.lastTraceIdx()
 		trace := &b.Traces.Arena[traceIdx].Trace
 		trace.SelfdestructRefundTarget = &to
-		return
 	} else if op == vm.CALL || op == vm.CALLCODE || op == vm.DELEGATECALL || op == vm.STATICCALL {
 		// handle Call
 		var maybePrecompile *bool

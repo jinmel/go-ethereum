@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	ethlog.Info("Initializing BrontesTracer")
+	ethlog.Debug("Initializing BrontesTracer")
 	tracers.DefaultDirectory.Register("brontesTracer", newBrontesTracer, false)
 }
 
@@ -72,7 +72,7 @@ func (t *brontesTracer) OnEnter(depth int, typ byte, from common.Address, to com
 	if t.interrupt.Load() {
 		return
 	}
-	ethlog.Info("BrontesTracer: OnEnter", "depth", depth, "typ", typ, "from", from.Hex(), "to", to.Hex(), "input", input, "gas", gas, "value", value)
+	ethlog.Debug("BrontesTracer: OnEnter", "depth", depth, "typ", typ, "from", from.Hex(), "to", to.Hex(), "input", input, "gas", gas, "value", value)
 	t.inspector.OnEnter(depth, typ, from, to, input, gas, value)
 }
 
@@ -81,19 +81,19 @@ func (t *brontesTracer) OnExit(depth int, output []byte, gasUsed uint64, err err
 	if t.interrupt.Load() {
 		return
 	}
-	ethlog.Info("BrontesTracer: OnExit", "depth", depth, "output", output, "gasUsed", gasUsed, "err", err, "reverted", reverted)
+	ethlog.Debug("BrontesTracer: OnExit", "depth", depth, "output", output, "gasUsed", gasUsed, "err", err, "reverted", reverted)
 	t.inspector.OnExit(depth, output, gasUsed, err, reverted)
 }
 
 func (t *brontesTracer) OnTxStart(env *tracing.VMContext, tx *types.Transaction, from common.Address) {
-	ethlog.Info("BrontesTracer: Transaction started", "txHash", tx.Hash().Hex(), "from", from.Hex(), "to", tx.To().Hex(), "value", tx.Value(), "gas", tx.Gas(), "blockNumber", env.BlockNumber)
+	ethlog.Debug("BrontesTracer: Transaction started", "txHash", tx.Hash().Hex(), "from", from.Hex(), "to", tx.To().Hex(), "value", tx.Value(), "gas", tx.Gas(), "blockNumber", env.BlockNumber)
 	// Initialize the BrontesInspector
 	t.inspector = brontes.NewBrontesInspector(brontes.DefaultTracingInspectorConfig, t.chainConfig, env, tx, from)
 	t.tx = tx
 }
 
 func (t *brontesTracer) OnTxEnd(receipt *types.Receipt, err error) {
-	ethlog.Info("BrontesTracer: Transaction ended", "txHash", receipt.TxHash.Hex(), "err", err)
+	ethlog.Debug("BrontesTracer: Transaction ended", "txHash", receipt.TxHash.Hex(), "err", err)
 	t.receipt = receipt
 }
 
