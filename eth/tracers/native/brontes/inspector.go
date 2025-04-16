@@ -362,6 +362,7 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 	instructionErrorMsg := b.AsErrorMsg(node)
 
 	return &TransactionTrace{
+		Type:         action.Type,
 		Action:       action,
 		Error:        &instructionErrorMsg,
 		Result:       result,
@@ -433,6 +434,7 @@ func (b *BrontesInspector) AsErrorMsg(node *CallTraceNode) string {
 
 // for both call(), create() and selfdestruct()
 // NOTE: The to, from and value that are different to every callKind are handled by the tracer library.
+// Any other type of of call
 func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
 	callKind := FromCallTypeCode(typ)
 	log.Info("OnEnter", "callKind", callKind)
@@ -445,15 +447,16 @@ func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to 
 		trace := &b.Traces.Arena[traceIdx].Trace
 		trace.SelfdestructRefundTarget = &to
 		return
+	} else if op == vm.CALL || op == vm.CALLCODE || op == vm.DELEGATECALL || op == vm.STATICCALL {
+		// handle Call
+		var maybePrecompile *bool
+		if b.Config.ExcludePrecompileCalls {
+			temp := b.IsPrecompile(to)
+			maybePrecompile = &temp
+		}
+		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, maybePrecompile)
 	}
-
-	// handle Call
-	var maybePrecompile *bool
-	if b.Config.ExcludePrecompileCalls {
-		temp := b.IsPrecompile(to)
-		maybePrecompile = &temp
-	}
-	b.startTraceOnCall(to, input, value, callKind, depth, from, gas, maybePrecompile)
+	// we only handle call and create and selfdestruct
 }
 
 // call/create end
