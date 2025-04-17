@@ -317,22 +317,34 @@ func (a *Action) MarshalJSON() ([]byte, error) {
 		am.CallType = a.Call.CallType.String()
 		am.From = &a.Call.From
 		am.To = &a.Call.To
-		am.Value = (*hexutil.Big)(a.Call.Value)
+		am.Value = (*hexutil.Big)(big.NewInt(0))
+		if a.Call.Value != nil {
+			am.Value = (*hexutil.Big)(a.Call.Value)
+		}
 		am.Gas = (*hexutil.Uint64)(&a.Call.Gas)
 		am.Input = &a.Call.Input
 	case ActionTypeCreate:
 		am.From = &a.Create.From
-		am.Value = (*hexutil.Big)(a.Create.Value)
+		am.Value = (*hexutil.Big)(big.NewInt(0))
+		if a.Create.Value != nil {
+			am.Value = (*hexutil.Big)(a.Create.Value)
+		}
 		am.Gas = (*hexutil.Uint64)(&a.Create.Gas)
 		am.Init = &a.Create.Init
 	case ActionTypeSelfDestruct:
 		am.Address = &a.SelfDestruct.Address
-		am.Balance = (*hexutil.Big)(a.SelfDestruct.Balance)
+		am.Balance = (*hexutil.Big)(big.NewInt(0))
+		if a.SelfDestruct.Balance != nil {
+			am.Balance = (*hexutil.Big)(a.SelfDestruct.Balance)
+		}
 		am.RefundAddress = &a.SelfDestruct.RefundAddress
 	case ActionTypeReward:
 		am.Author = &a.Reward.Author
 		am.RewardType = string(a.Reward.RewardType)
-		am.Value = (*hexutil.Big)(a.Reward.Value)
+		am.Value = (*hexutil.Big)(big.NewInt(0))
+		if a.Reward.Value != nil {
+			am.Value = (*hexutil.Big)(a.Reward.Value)
+		}
 	}
 	return json.Marshal(am)
 }
