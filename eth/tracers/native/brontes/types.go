@@ -105,7 +105,7 @@ type CallKind string
 
 const (
 	CallKindCall         = "call"
-	CallKindStaticCall   = "static"
+	CallKindStaticCall   = "staticcall"
 	CallKindCallCode     = "callcode"
 	CallKindDelegateCall = "delegatecall"
 	CallKindCreate       = "create"
