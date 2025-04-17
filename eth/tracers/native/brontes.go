@@ -104,8 +104,6 @@ func (t *brontesTracer) OnLog(log *types.Log) {
 
 func (t *brontesTracer) GetResult() (json.RawMessage, error) {
 	result, err := t.inspector.IntoTraceResults(t.tx, t.receipt, t.ctx.TxIndex)
-	t.inspector.DumpTraceArena()
-	ethlog.Info("BrontesTracer: GetResult", "result", result)
 	if err != nil {
 		return nil, err
 	}
