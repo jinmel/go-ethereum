@@ -333,6 +333,8 @@ func (b *BrontesInspector) buildTrace(txHash common.Hash, blockNumber *big.Int) 
 		}
 		msgSender := findMsgSender(traces, trace)
 
+		log.Info("Appending trace", "trace", trace)
+
 		traces = append(traces, TransactionTraceWithLogs{
 			Trace:       *trace,
 			Logs:        logs,
