@@ -149,15 +149,11 @@ func (b *BrontesInspector) startTraceOnCall(address common.Address, inputData []
 }
 
 func (b *BrontesInspector) fillTraceOnCallEnd(gasUsed uint64, err error, reverted bool, output []byte) {
+	log.Info("fillTraceOnCallEnd", "gasUsed", gasUsed, "err", err, "reverted", reverted, "output", output)
 	traceIdx := b.popTraceIdx()
 	trace := &b.Traces.Arena[traceIdx].Trace
 
-	if traceIdx == 0 {
-		// TODO: handle root call
-	} else {
-		trace.GasUsed = gasUsed
-	}
-
+	trace.GasUsed = gasUsed
 	trace.Success = !reverted
 	trace.Output = output
 

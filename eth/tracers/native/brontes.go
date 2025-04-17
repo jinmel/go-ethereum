@@ -15,7 +15,6 @@ import (
 )
 
 func init() {
-	ethlog.Debug("Initializing BrontesTracer")
 	tracers.DefaultDirectory.Register("brontesTracer", newBrontesTracer, false)
 }
 
@@ -105,6 +104,7 @@ func (t *brontesTracer) OnLog(log *types.Log) {
 
 func (t *brontesTracer) GetResult() (json.RawMessage, error) {
 	result, err := t.inspector.IntoTraceResults(t.tx, t.receipt, t.ctx.TxIndex)
+	ethlog.Info("BrontesTracer: GetResult", "result", result)
 	if err != nil {
 		return nil, err
 	}
