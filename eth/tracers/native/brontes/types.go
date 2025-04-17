@@ -147,25 +147,6 @@ func (ck CallKind) IsStaticCall() bool {
 	return ck == CallKindStaticCall
 }
 
-func (ck CallKind) String() string {
-	switch ck {
-	case CallKindCall:
-		return "CALL"
-	case CallKindStaticCall:
-		return "STATICCALL"
-	case CallKindCallCode:
-		return "CALLCODE"
-	case CallKindDelegateCall:
-		return "DELEGATECALL"
-	case CallKindCreate:
-		return "CREATE"
-	case CallKindCreate2:
-		return "CREATE2"
-	default:
-		return "UNKNOWN"
-	}
-}
-
 // ---------------------------------------------------------------------
 // Additional supporting types
 // ---------------------------------------------------------------------
@@ -314,7 +295,7 @@ func (a *Action) MarshalJSON() ([]byte, error) {
 
 	switch a.Type {
 	case ActionTypeCall:
-		am.CallType = a.Call.CallType.String()
+		am.CallType = string(a.Call.CallType)
 		am.From = &a.Call.From
 		am.To = &a.Call.To
 		am.Value = (*hexutil.Big)(big.NewInt(0))

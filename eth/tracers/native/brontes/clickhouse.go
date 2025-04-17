@@ -104,7 +104,7 @@ func NewClickhouseCallAction(value *TxTrace) *ClickhouseCallAction {
 		if trace.Trace.Action.Type == ActionTypeCall {
 			result.TraceIdx = append(result.TraceIdx, trace.TraceIdx)
 			result.From = append(result.From, trace.Trace.Action.Call.From.String())
-			result.CallType = append(result.CallType, trace.Trace.Action.Call.CallType.String())
+			result.CallType = append(result.CallType, string(trace.Trace.Action.Call.CallType))
 			result.Gas = append(result.Gas, trace.Trace.Action.Call.Gas)
 			result.Input = append(result.Input, fmt.Sprintf("%x", trace.Trace.Action.Call.Input))
 			result.To = append(result.To, trace.Trace.Action.Call.To.String())
