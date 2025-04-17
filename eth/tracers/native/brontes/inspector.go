@@ -363,7 +363,43 @@ func (b *BrontesInspector) buildTrace(txHash common.Hash, blockNumber *big.Int) 
 }
 
 func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint) *TransactionTrace {
+	// Pretty print the node for debugging purposes
+	log.Info("Building transaction trace",
+		"idx", node.Idx,
+		"parent", node.Parent,
+		"children", len(node.Children),
+		"address", node.Trace.Address.Hex(),
+		"caller", node.Trace.Caller.Hex(),
+		"kind", node.Trace.Kind,
+		"gasLimit", node.Trace.GasLimit,
+		"gasUsed", node.Trace.GasUsed,
+		"success", node.Trace.Success,
+		"isError", node.Trace.IsError(),
+		"isRevert", node.Trace.IsRevert(),
+		"traceAddress", traceAddress)
+
 	action := b.ParityAction(node)
+
+	// Pretty print the action for debugging purposes
+	if action.Type == ActionTypeCall {
+		log.Info("Action details (Call)",
+			"from", action.Call.From.Hex(),
+			"to", action.Call.To.Hex(),
+			"value", action.Call.Value,
+			"gas", action.Call.Gas,
+			"callType", action.Call.CallType,
+			"inputSize", len(action.Call.Input))
+	} else if action.Type == ActionTypeCreate {
+		log.Info("Action details (Create)",
+			"from", action.Create.From.Hex(),
+			"value", action.Create.Value,
+			"gas", action.Create.Gas,
+			"initSize", len(action.Create.Init))
+	} else {
+		log.Info("Action details (Unknown type)",
+			"type", action.Type)
+	}
+
 	var result *TraceOutput
 	if node.Trace.IsError() && !node.Trace.IsRevert() {
 		result = nil
@@ -372,7 +408,8 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 	}
 	instructionErrorMsg := b.AsErrorMsg(node)
 
-	return &TransactionTrace{
+	// Pretty print the TransactionTrace for debugging purposes
+	txTrace := &TransactionTrace{
 		Type:         action.Type,
 		Action:       action,
 		Error:        &instructionErrorMsg,
@@ -380,6 +417,15 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 		TraceAddress: traceAddress,
 		Subtraces:    uint(len(node.Children)),
 	}
+
+	// Log the transaction trace details
+	log.Info("Transaction trace details",
+		"type", txTrace.Type,
+		"error", *txTrace.Error,
+		"subtraces", txTrace.Subtraces,
+		"traceAddress", txTrace.TraceAddress)
+
+	return txTrace
 }
 
 func (b *BrontesInspector) ParityAction(node *CallTraceNode) *Action {
