@@ -2,6 +2,7 @@ package brontes
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"slices"
 
@@ -312,6 +313,18 @@ func findMsgSender(traces []TransactionTraceWithLogs, trace *TransactionTrace) c
 		msgSender = trace.Action.GetFromAddr()
 	}
 	return msgSender
+}
+
+func (b *BrontesInspector) DumpTraceArena() {
+	if len(b.Traces.Nodes()) == 0 {
+		log.Info("Trace Arena is empty")
+		return
+	}
+
+	for i, node := range b.IterTraceableNodes() {
+		trace := b.buildTxTrace(&node, b.TraceAddress(b.Traces.Nodes(), node.Idx))
+		log.Info("Trace Arena", "idx", i, "node", fmt.Sprintf("%#v", node), "trace", fmt.Sprintf("%#v", trace))
+	}
 }
 
 func (b *BrontesInspector) buildTrace(txHash common.Hash, blockNumber *big.Int) (*[]TransactionTraceWithLogs, error) {
