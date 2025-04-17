@@ -128,7 +128,6 @@ func (b *BrontesInspector) popTraceIdx() int {
 
 // startTraceOnCall starts tracking a new call trace.
 func (b *BrontesInspector) startTraceOnCall(address common.Address, inputData []byte, value *big.Int, kind CallKind, depth int, caller common.Address, gasLimit uint64, maybePrecompile *bool) {
-	log.Info("startTraceOnCall", "address", address, "inputData", inputData, "value", value, "kind", kind, "depth", depth, "caller", caller, "gasLimit", gasLimit, "maybePrecompile", maybePrecompile)
 	var pushKind PushTraceKind
 	if maybePrecompile != nil && *maybePrecompile {
 		pushKind = PushTraceKindPushOnly
@@ -150,7 +149,6 @@ func (b *BrontesInspector) startTraceOnCall(address common.Address, inputData []
 }
 
 func (b *BrontesInspector) fillTraceOnCallEnd(gasUsed uint64, err error, reverted bool, output []byte) {
-	log.Info("fillTraceOnCallEnd", "gasUsed", gasUsed, "err", err, "reverted", reverted, "output", output)
 	traceIdx := b.popTraceIdx()
 	trace := &b.Traces.Arena[traceIdx].Trace
 
@@ -205,7 +203,7 @@ func (b *BrontesInspector) startStep(pc uint64, op byte, gas, cost uint64, scope
 
 func (b *BrontesInspector) IntoTraceResults(tx *types.Transaction, receipt *types.Receipt, txIndex int) (*TxTrace, error) {
 	blockNumber := b.VMContext.BlockNumber
-	trace, err := b.buildTrace(tx.Hash(), blockNumber)
+	trace, err := b.buildTrace()
 	if err != nil {
 		return nil, err
 	}
@@ -324,15 +322,49 @@ func (b *BrontesInspector) DumpTraceArena() {
 	for i, node := range b.IterTraceableNodes() {
 		trace := b.buildTxTrace(&node, b.TraceAddress(b.Traces.Nodes(), node.Idx))
 		log.Info("Trace Arena", "idx", i, "node", fmt.Sprintf("%#v", node), "trace", fmt.Sprintf("%#v", trace))
+		// Log additional details based on trace type
+		switch trace.Action.Type {
+		case ActionTypeCall:
+			if call := trace.Action.Call; call != nil {
+				log.Info("Call details",
+					"from", call.From.Hex(),
+					"to", call.To.Hex(),
+					"value", call.Value,
+					"gas", call.Gas,
+					"callType", call.CallType)
+			}
+		case ActionTypeCreate:
+			if create := trace.Action.Create; create != nil {
+				log.Info("Create details",
+					"from", create.From.Hex(),
+					"value", create.Value,
+					"gas", create.Gas)
+			}
+		}
+
+		// Log result information
+		if trace.Result != nil {
+			switch {
+			case trace.Result.Call != nil:
+				log.Info("Call result",
+					"gasUsed", trace.Result.Call.GasUsed,
+					"outputSize", len(trace.Result.Call.Output))
+			case trace.Result.Create != nil:
+				log.Info("Create result",
+					"gasUsed", trace.Result.Create.GasUsed,
+					"address", trace.Result.Create.Address.Hex(),
+					"codeSize", len(trace.Result.Create.Code))
+			}
+		}
 	}
 }
 
-func (b *BrontesInspector) buildTrace(txHash common.Hash, blockNumber *big.Int) (*[]TransactionTraceWithLogs, error) {
+func (b *BrontesInspector) buildTrace() (*[]TransactionTraceWithLogs, error) {
 	if len(b.Traces.Nodes()) == 0 {
 		return nil, errors.New("no traces found")
 	}
 
-	traces := make([]TransactionTraceWithLogs, len(b.Traces.Nodes()))
+	traces := make([]TransactionTraceWithLogs, 0, len(b.Traces.Nodes()))
 	for _, node := range b.IterTraceableNodes() {
 		traceAddress := b.TraceAddress(b.Traces.Nodes(), node.Idx)
 		trace := b.buildTxTrace(&node, traceAddress)
@@ -345,8 +377,6 @@ func (b *BrontesInspector) buildTrace(txHash common.Hash, blockNumber *big.Int) 
 			})
 		}
 		msgSender := findMsgSender(traces, trace)
-
-		log.Info("Appending trace", "trace", trace)
 
 		traces = append(traces, TransactionTraceWithLogs{
 			Trace:       *trace,
@@ -363,43 +393,7 @@ func (b *BrontesInspector) buildTrace(txHash common.Hash, blockNumber *big.Int) 
 }
 
 func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint) *TransactionTrace {
-	// Pretty print the node for debugging purposes
-	log.Info("Building transaction trace",
-		"idx", node.Idx,
-		"parent", node.Parent,
-		"children", len(node.Children),
-		"address", node.Trace.Address.Hex(),
-		"caller", node.Trace.Caller.Hex(),
-		"kind", node.Trace.Kind,
-		"gasLimit", node.Trace.GasLimit,
-		"gasUsed", node.Trace.GasUsed,
-		"success", node.Trace.Success,
-		"isError", node.Trace.IsError(),
-		"isRevert", node.Trace.IsRevert(),
-		"traceAddress", traceAddress)
-
 	action := b.ParityAction(node)
-
-	// Pretty print the action for debugging purposes
-	if action.Type == ActionTypeCall {
-		log.Info("Action details (Call)",
-			"from", action.Call.From.Hex(),
-			"to", action.Call.To.Hex(),
-			"value", action.Call.Value,
-			"gas", action.Call.Gas,
-			"callType", action.Call.CallType,
-			"inputSize", len(action.Call.Input))
-	} else if action.Type == ActionTypeCreate {
-		log.Info("Action details (Create)",
-			"from", action.Create.From.Hex(),
-			"value", action.Create.Value,
-			"gas", action.Create.Gas,
-			"initSize", len(action.Create.Init))
-	} else {
-		log.Info("Action details (Unknown type)",
-			"type", action.Type)
-	}
-
 	var result *TraceOutput
 	if node.Trace.IsError() && !node.Trace.IsRevert() {
 		result = nil
@@ -417,13 +411,6 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 		TraceAddress: traceAddress,
 		Subtraces:    uint(len(node.Children)),
 	}
-
-	// Log the transaction trace details
-	log.Info("Transaction trace details",
-		"type", txTrace.Type,
-		"error", *txTrace.Error,
-		"subtraces", txTrace.Subtraces,
-		"traceAddress", txTrace.TraceAddress)
 
 	return txTrace
 }
@@ -494,7 +481,6 @@ func (b *BrontesInspector) AsErrorMsg(node *CallTraceNode) string {
 // Any other type of of call
 func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
 	callKind := FromCallTypeCode(typ)
-	log.Info("OnEnter", "callKind", callKind)
 	op := vm.OpCode(typ)
 	if op == vm.CREATE || op == vm.CREATE2 {
 		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, nil)
