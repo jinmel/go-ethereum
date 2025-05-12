@@ -89,6 +89,7 @@ func (t *brontesTracer) OnExit(depth int, output []byte, gasUsed uint64, err err
 }
 
 func (t *brontesTracer) OnTxStart(env *tracing.VMContext, tx *types.Transaction, from common.Address) {
+	ethlog.Error("asdf", "tx", tx, "from", from, "env", env)
 	ethlog.Error("BrontesTracer: Transaction started", "txHash", tx.Hash().Hex(), "from", from.Hex(), "to", tx.To().Hex(), "value", tx.Value(), "gas", tx.Gas(), "blockNumber", env.BlockNumber)
 	// Initialize the BrontesInspector
 	t.inspector = brontes.NewBrontesInspector(brontes.DefaultTracingInspectorConfig, t.chainConfig, env, tx, from)
