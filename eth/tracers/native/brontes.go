@@ -72,7 +72,10 @@ func (t *brontesTracer) OnEnter(depth int, typ byte, from common.Address, to com
 		return
 	}
 	ethlog.Debug("BrontesTracer: OnEnter", "depth", depth, "typ", typ, "from", from.Hex(), "to", to.Hex(), "input", input, "gas", gas, "value", value)
-	t.inspector.OnEnter(depth, typ, from, to, input, gas, value)
+	err := t.inspector.OnEnter(depth, typ, from, to, input, gas, value)
+	if err != nil {
+		ethlog.Error("BrontesTracer: OnEnter", "error", err)
+	}
 }
 
 // Step out
@@ -92,7 +95,9 @@ func (t *brontesTracer) OnTxStart(env *tracing.VMContext, tx *types.Transaction,
 }
 
 func (t *brontesTracer) OnTxEnd(receipt *types.Receipt, err error) {
-	ethlog.Debug("BrontesTracer: Transaction ended", "txHash", receipt.TxHash.Hex(), "err", err)
+	if receipt != nil {
+		ethlog.Debug("BrontesTracer: Transaction ended", "txHash", receipt.TxHash.Hex(), "err", err)
+	}
 	t.receipt = receipt
 }
 

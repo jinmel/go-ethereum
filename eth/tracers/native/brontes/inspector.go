@@ -479,8 +479,11 @@ func (b *BrontesInspector) AsErrorMsg(node *CallTraceNode) string {
 // for both call(), create() and selfdestruct()
 // NOTE: The to, from and value that are different to every callKind are handled by the tracer library.
 // Any other type of of call
-func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
-	callKind := FromCallTypeCode(typ)
+func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) error {
+	callKind, err := FromCallTypeCode(typ)
+	if err != nil {
+		return err
+	}
 	op := vm.OpCode(typ)
 	if op == vm.CREATE || op == vm.CREATE2 {
 		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, nil)
@@ -497,6 +500,7 @@ func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to 
 		}
 		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, maybePrecompile)
 	}
+	return nil
 	// we only handle call and create and selfdestruct
 }
 

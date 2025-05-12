@@ -112,23 +112,23 @@ const (
 	CallKindCreate2      = "create2"
 )
 
-func FromCallTypeCode(typ byte) CallKind {
+func FromCallTypeCode(typ byte) (CallKind, error) {
 	callScheme := vm.OpCode(typ)
 	switch callScheme {
 	case vm.CALL:
-		return CallKindCall
+		return CallKindCall, nil
 	case vm.STATICCALL:
-		return CallKindStaticCall
+		return CallKindStaticCall, nil
 	case vm.CALLCODE:
-		return CallKindCallCode
+		return CallKindCallCode, nil
 	case vm.DELEGATECALL:
-		return CallKindDelegateCall
+		return CallKindDelegateCall, nil
 	case vm.CREATE:
-		return CallKindCreate
+		return CallKindCreate, nil
 	case vm.CREATE2:
-		return CallKindCreate2
+		return CallKindCreate2, nil
 	}
-	panic("unknown call type")
+	return "", fmt.Errorf("unknown call type: %s", callScheme)
 }
 
 func (ck CallKind) IsAnyCreate() bool {
