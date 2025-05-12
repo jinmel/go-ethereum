@@ -503,7 +503,9 @@ func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to 
 	} else if op == vm.SELFDESTRUCT {
 		traceIdx := b.lastTraceIdx()
 		trace := &b.Traces.Arena[traceIdx].Trace
-		trace.SelfDestructRefundTarget = &to
+		// Create a copy of the address
+		refundAddr := to
+		trace.SelfDestructRefundTarget = &refundAddr
 		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, nil)
 	} else if op == vm.CALL || op == vm.CALLCODE || op == vm.DELEGATECALL || op == vm.STATICCALL {
 		// handle Call
