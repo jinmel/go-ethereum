@@ -453,7 +453,7 @@ func (b *BrontesInspector) ParityAction(node *CallTraceNode) *Action {
 			SelfDestruct: inner,
 		}
 	}
-	panic("unknown action type")
+	panic(fmt.Sprintf("unknown action type: %v", node.Trace.Kind))
 }
 
 func (b *BrontesInspector) ParityTraceOutput(node *CallTraceNode) *TraceOutput {
