@@ -484,6 +484,7 @@ func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to 
 	if err != nil {
 		return err
 	}
+	log.Error("BrontesInspector: OnEnter", "callKind", callKind)
 	op := vm.OpCode(typ)
 	if op == vm.CREATE || op == vm.CREATE2 {
 		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, nil)
