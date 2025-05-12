@@ -492,6 +492,7 @@ func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to 
 		traceIdx := b.lastTraceIdx()
 		trace := &b.Traces.Arena[traceIdx].Trace
 		trace.SelfdestructRefundTarget = &to
+		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, nil)
 	} else if op == vm.CALL || op == vm.CALLCODE || op == vm.DELEGATECALL || op == vm.STATICCALL {
 		// handle Call
 		var maybePrecompile *bool
