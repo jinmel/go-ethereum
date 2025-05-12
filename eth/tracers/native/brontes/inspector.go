@@ -499,12 +499,10 @@ func (b *BrontesInspector) AsErrorMsg(node *CallTraceNode) string {
 // for both call(), create() and selfdestruct()
 // NOTE: The to, from and value that are different for every callKind are handled correctly by the geth tracer framework.
 func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) error {
-	log.Error("BrontesInspector: OnEnter", "depth", depth, "typ", typ, "from", from.Hex(), "to", to.Hex(), "input", input, "gas", gas, "value", value)
 	callKind, err := FromCallTypeCode(typ)
 	if err != nil {
 		return err
 	}
-	log.Error("BrontesInspector: OnEnter", "callKind", callKind)
 	op := vm.OpCode(typ)
 	if op == vm.CREATE || op == vm.CREATE2 {
 		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, nil)
@@ -525,7 +523,6 @@ func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to 
 
 // call/create end
 func (b *BrontesInspector) OnExit(depth int, output []byte, gasUsed uint64, err error, reverted bool) {
-	log.Error("BrontesInspector: OnExit", "depth", depth, "output", output, "gasUsed", gasUsed, "err", err, "reverted", reverted)
 	b.fillTraceOnCallEnd(gasUsed, err, reverted, output)
 }
 

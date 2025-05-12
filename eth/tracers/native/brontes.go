@@ -89,16 +89,12 @@ func (t *brontesTracer) OnExit(depth int, output []byte, gasUsed uint64, err err
 }
 
 func (t *brontesTracer) OnTxStart(env *tracing.VMContext, tx *types.Transaction, from common.Address) {
-	ethlog.Error("asdf", "tx", tx, "from", from, "env", env)
-	ethlog.Error("asdf2", "tx", tx.Hash(), "from", from.Hex(), "to", tx.To(), "value", tx.Value(), "gas", tx.Gas(), "blockNumber", env.BlockNumber)
-	ethlog.Error("BrontesTracer: Transaction started", "txHash", tx.Hash().Hex(), "from", from.Hex(), "to", tx.To().Hex(), "value", tx.Value(), "gas", tx.Gas(), "blockNumber", env.BlockNumber)
 	// Initialize the BrontesInspector
 	t.inspector = brontes.NewBrontesInspector(brontes.DefaultTracingInspectorConfig, t.chainConfig, env, tx, from)
 	t.tx = tx
 }
 
 func (t *brontesTracer) OnTxEnd(receipt *types.Receipt, err error) {
-	ethlog.Error("BrontesTracer: Transaction ended", "txHash", t.tx.Hash().Hex(), "err", err)
 	if receipt != nil {
 		ethlog.Debug("BrontesTracer: Transaction ended", "txHash", receipt.TxHash.Hex(), "err", err)
 	}
