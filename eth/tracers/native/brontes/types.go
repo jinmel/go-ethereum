@@ -110,6 +110,7 @@ const (
 	CallKindDelegateCall = "delegatecall"
 	CallKindCreate       = "create"
 	CallKindCreate2      = "create2"
+	CallKindSelfDestruct = "selfdestruct"
 )
 
 func FromCallTypeCode(typ byte) (CallKind, error) {
@@ -127,6 +128,8 @@ func FromCallTypeCode(typ byte) (CallKind, error) {
 		return CallKindCreate, nil
 	case vm.CREATE2:
 		return CallKindCreate2, nil
+	case vm.SELFDESTRUCT:
+		return CallKindSelfDestruct, nil
 	}
 	return "", fmt.Errorf("unknown call type: %s", callScheme)
 }

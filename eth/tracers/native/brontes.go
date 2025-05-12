@@ -75,6 +75,7 @@ func (t *brontesTracer) OnEnter(depth int, typ byte, from common.Address, to com
 	err := t.inspector.OnEnter(depth, typ, from, to, input, gas, value)
 	if err != nil {
 		ethlog.Error("BrontesTracer: OnEnter", "error", err)
+		t.interrupt.Store(true)
 	}
 }
 

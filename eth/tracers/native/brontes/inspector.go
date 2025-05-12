@@ -477,8 +477,7 @@ func (b *BrontesInspector) AsErrorMsg(node *CallTraceNode) string {
 }
 
 // for both call(), create() and selfdestruct()
-// NOTE: The to, from and value that are different to every callKind are handled by the tracer library.
-// Any other type of of call
+// NOTE: The to, from and value that are different for every callKind are handled correctly by the geth tracer framework.
 func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) error {
 	callKind, err := FromCallTypeCode(typ)
 	if err != nil {
