@@ -32,7 +32,7 @@ type CallTrace struct {
 	Caller                   common.Address
 	Address                  common.Address // For CALL calls, this is the callee; for CREATE, it is the created address.
 	MaybePrecompile          *bool
-	SelfdestructRefundTarget *common.Address
+	SelfDestructRefundTarget *common.Address
 	Kind                     CallKind
 	Value                    *big.Int
 	Data                     hexutil.Bytes
@@ -93,7 +93,7 @@ func (ctn *CallTraceNode) Kind() CallKind {
 
 // IsSelfdestruct returns true if the call was a selfdestruct.
 func (ctn *CallTraceNode) IsSelfdestruct() bool {
-	return ctn.Trace.SelfdestructRefundTarget != nil
+	return ctn.Trace.SelfDestructRefundTarget != nil
 }
 
 // ---------------------------------------------------------------------
@@ -148,6 +148,10 @@ func (ck CallKind) IsDelegate() bool {
 
 func (ck CallKind) IsStaticCall() bool {
 	return ck == CallKindStaticCall
+}
+
+func (ck CallKind) IsSelfDestruct() bool {
+	return ck == CallKindSelfDestruct
 }
 
 // ---------------------------------------------------------------------
@@ -274,7 +278,7 @@ type Action struct {
 	Type         ActionType          `json:"-"`
 	Call         *CallAction         `json:"-"`
 	Create       *CreateAction       `json:"-"`
-	SelfDestruct *SelfdestructAction `json:"-"`
+	SelfDestruct *SelfDestructAction `json:"-"`
 	Reward       *RewardAction       `json:"-"`
 }
 
@@ -493,30 +497,30 @@ type CreateOutput struct {
 	Address common.Address `json:"address"`
 }
 
-// SelfdestructAction represents a selfdestruct action.
-type SelfdestructAction struct {
+// SelfDestructAction represents a selfdestruct action.
+type SelfDestructAction struct {
 	Address       common.Address `json:"address"`
 	RefundAddress common.Address `json:"refundAddress"`
 	Balance       *big.Int       `json:"balance"`
 }
 
-func (sa *SelfdestructAction) GetFromAddr() common.Address {
+func (sa *SelfDestructAction) GetFromAddr() common.Address {
 	return sa.Address
 }
 
-func (sa *SelfdestructAction) ActionType() ActionType {
+func (sa *SelfDestructAction) ActionType() ActionType {
 	return ActionTypeSelfDestruct
 }
 
-func (sa *SelfdestructAction) GetToAddr() common.Address {
+func (sa *SelfDestructAction) GetToAddr() common.Address {
 	return sa.Address
 }
 
-func (sa *SelfdestructAction) GetMsgValue() []byte {
+func (sa *SelfDestructAction) GetMsgValue() []byte {
 	return []byte{}
 }
 
-func (sa *SelfdestructAction) GetCallData() []byte {
+func (sa *SelfDestructAction) GetCallData() []byte {
 	return []byte{}
 }
 

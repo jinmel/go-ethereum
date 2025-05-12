@@ -397,6 +397,8 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 	var result *TraceOutput
 	if node.Trace.IsError() && !node.Trace.IsRevert() {
 		result = nil
+	} else if node.Trace.Kind.IsSelfDestruct() {
+		result = nil
 	} else {
 		result = b.ParityTraceOutput(node)
 	}
@@ -439,6 +441,16 @@ func (b *BrontesInspector) ParityAction(node *CallTraceNode) *Action {
 		return &Action{
 			Type:   ActionTypeCreate,
 			Create: inner,
+		}
+	} else if node.Trace.Kind.IsSelfDestruct() {
+		inner := &SelfDestructAction{
+			Address:       node.Trace.Address,
+			RefundAddress: *node.Trace.SelfDestructRefundTarget,
+			Balance:       node.Trace.Value,
+		}
+		return &Action{
+			Type:         ActionTypeSelfDestruct,
+			SelfDestruct: inner,
 		}
 	}
 	panic("unknown action type")
@@ -491,7 +503,7 @@ func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to 
 	} else if op == vm.SELFDESTRUCT {
 		traceIdx := b.lastTraceIdx()
 		trace := &b.Traces.Arena[traceIdx].Trace
-		trace.SelfdestructRefundTarget = &to
+		trace.SelfDestructRefundTarget = &to
 		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, nil)
 	} else if op == vm.CALL || op == vm.CALLCODE || op == vm.DELEGATECALL || op == vm.STATICCALL {
 		// handle Call
