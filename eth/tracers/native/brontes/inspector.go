@@ -134,15 +134,23 @@ func (b *BrontesInspector) startTraceOnCall(address common.Address, inputData []
 	} else {
 		pushKind = PushTraceKindPushAndAttachToParent
 	}
+
+	var selfDestructRefundTarget *common.Address
+	if kind.IsSelfDestruct() {
+		refundAddr := address
+		selfDestructRefundTarget = &refundAddr
+	}
+
 	trace := CallTrace{
-		Depth:           depth,
-		Address:         address,
-		Kind:            kind,
-		Data:            inputData,
-		Value:           value,
-		Caller:          caller,
-		MaybePrecompile: maybePrecompile,
-		GasLimit:        gasLimit,
+		Depth:                    depth,
+		Address:                  address,
+		Kind:                     kind,
+		Data:                     inputData,
+		Value:                    value,
+		Caller:                   caller,
+		MaybePrecompile:          maybePrecompile,
+		GasLimit:                 gasLimit,
+		SelfDestructRefundTarget: selfDestructRefundTarget,
 	}
 	traceIdx := b.Traces.PushTrace(0, pushKind, trace)
 	b.TraceStack = append(b.TraceStack, traceIdx)
@@ -501,11 +509,6 @@ func (b *BrontesInspector) OnEnter(depth int, typ byte, from common.Address, to 
 	if op == vm.CREATE || op == vm.CREATE2 {
 		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, nil)
 	} else if op == vm.SELFDESTRUCT {
-		traceIdx := b.lastTraceIdx()
-		trace := &b.Traces.Arena[traceIdx].Trace
-		// Create a copy of the address
-		refundAddr := to
-		trace.SelfDestructRefundTarget = &refundAddr
 		b.startTraceOnCall(to, input, value, callKind, depth, from, gas, nil)
 	} else if op == vm.CALL || op == vm.CALLCODE || op == vm.DELEGATECALL || op == vm.STATICCALL {
 		// handle Call
