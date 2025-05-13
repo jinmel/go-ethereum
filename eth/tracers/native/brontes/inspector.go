@@ -416,7 +416,7 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 	txTrace := &TransactionTrace{
 		Type:         action.Type,
 		Action:       action,
-		Error:        &instructionErrorMsg,
+		Error:        instructionErrorMsg,
 		Result:       result,
 		TraceAddress: traceAddress,
 		Subtraces:    uint(len(node.Children)),
@@ -487,13 +487,14 @@ func (b *BrontesInspector) ParityTraceOutput(node *CallTraceNode) *TraceOutput {
 	panic("unknown trace output type")
 }
 
-func (b *BrontesInspector) AsErrorMsg(node *CallTraceNode) string {
+func (b *BrontesInspector) AsErrorMsg(node *CallTraceNode) *string {
 	if !node.Trace.IsError() {
-		return ""
+		return nil
 	}
 
 	// Since we don't have the Trace.Status field, let's just return a generic error message.
-	return "Instruction failed"
+	errMsg := "Instruction failed"
+	return &errMsg
 }
 
 // for both call(), create() and selfdestruct()
