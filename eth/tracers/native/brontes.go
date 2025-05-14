@@ -105,6 +105,7 @@ func (t *brontesTracer) OnLog(log *types.Log) {
 	if t.interrupt.Load() {
 		return
 	}
+	t.inspector.OnLog(log)
 }
 
 func (t *brontesTracer) GetResult() (json.RawMessage, error) {
