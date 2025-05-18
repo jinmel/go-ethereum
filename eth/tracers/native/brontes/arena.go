@@ -1,5 +1,7 @@
 package brontes
 
+import "github.com/ethereum/go-ethereum/log"
+
 type CallTraceArena struct {
 	Arena []CallTraceNode
 }
@@ -13,9 +15,11 @@ func NewCallTraceArena() *CallTraceArena {
 // PushTrace pushes a new trace into the arena, returning the trace ID.
 // It will attach the trace to its parent if kind.IsAttachToParent() returns true.
 func (cta *CallTraceArena) PushTrace(entry int, kind PushTraceKind, newTrace CallTrace) int {
+	log.Trace("Pushing trace", "newTrace", newTrace)
 	for {
 		// If newTrace is the entry/root node, update the root and return 0.
 		if newTrace.Depth == 0 {
+			log.Trace("Updating root trace", "newTrace", newTrace)
 			cta.Arena[0].Trace = newTrace
 			return 0
 		}
@@ -33,6 +37,7 @@ func (cta *CallTraceArena) PushTrace(entry int, kind PushTraceKind, newTrace Cal
 
 			// If we need to attach the new trace to its parent's children list:
 			if kind.IsAttachToParent() {
+				log.Trace("Attaching trace to parent", "entry", entry, "id", id)
 				parent := &cta.Arena[entry]
 				traceLocation := len(parent.Children)
 				// Append a LogCallOrder value. Here we assume NewLogCallOrderCall is defined elsewhere.
