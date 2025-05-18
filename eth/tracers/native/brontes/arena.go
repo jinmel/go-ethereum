@@ -1,7 +1,5 @@
 package brontes
 
-import "github.com/ethereum/go-ethereum/log"
-
 type CallTraceArena struct {
 	Arena []CallTraceNode
 }
@@ -18,7 +16,6 @@ func (cta *CallTraceArena) PushTrace(entry int, kind PushTraceKind, newTrace Cal
 	for {
 		// If newTrace is the entry/root node, update the root and return 0.
 		if newTrace.Depth == 0 {
-			log.Info("Updating root trace", "newTrace", newTrace)
 			cta.Arena[0].Trace = newTrace
 			return 0
 		}
