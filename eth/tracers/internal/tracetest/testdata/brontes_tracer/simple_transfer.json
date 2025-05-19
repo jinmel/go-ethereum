@@ -1,0 +1,55 @@
+{
+  "comment": "Simple transfer transaction",
+  "context": {
+    "number": "0x1",
+    "difficulty": "0x0",
+    "timestamp": "0x0",
+    "gasLimit": "0x989680",
+    "miner": "0x0000000000000000000000000000000000000000"
+  },
+  "genesis": {
+    "alloc": {
+      "0x71562b71999873db5b286df957af199ec94617f7": {
+        "code": "0x",
+        "nonce": "0x0",
+        "balance": "0x1c6bf52634000"
+      },
+      "0x00000000000000000000000000000000deadbeef": {
+        "code": "0x",
+        "nonce": "0x0",
+        "balance": "0x0"
+      }
+    },
+    "config": {
+      "ethash": {},
+      "chainId": 1,
+      "homesteadBlock": 0,
+      "eip150Block": 0,
+      "eip155Block": 0,
+      "eip158Block": 0,
+      "byzantiumBlock": 0,
+      "constantinopleBlock": 0,
+      "petersburgBlock": 0,
+      "istanbulBlock": 0,
+      "berlinBlock": 0,
+      "londonBlock": 0,
+      "shanghaiTime": 0,
+      "cancunTime": 0
+    },
+    "number": 0,
+    "gasLimit": 10000000,
+    "gasUsed": 0,
+    "timestamp": 0,
+    "difficulty": 1
+  },
+  "input": "0xf861800182c3509400000000000000000000000000000000deadbeef8203e88025a0d826d6b16def41a543dcaa1a3eee24ff35d6781c6ee95d220156519e6eb80a03a03566a2795dfba65850779c805cab89517b6d01bc9f3f197aab9014a16a85618f",
+  "tracerConfig": null,
+  "result": {
+    "block_number": 1,
+    "tx_hash": "0xea669e888ce72e1031f199fd5c75ecf03344cbdcc08940a7c15e31fabc85c56f",
+    "gas_used": 21000,
+    "effective_price": 0,
+    "is_success": true,
+    "trace": []
+  }
+} 
