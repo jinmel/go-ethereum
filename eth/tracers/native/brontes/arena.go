@@ -50,9 +50,17 @@ func (cta *CallTraceArena) PushTrace(entry int, kind PushTraceKind, newTrace Cal
 		// Otherwise, we haven't found the proper parent; go deeper by selecting the last child.
 		parentNode := cta.Arena[entry]
 		if len(parentNode.Children) == 0 {
+			log.Error("Disconnected trace", "entry", entry, "parentNode", parentNode)
+			cta.Dump()
 			panic("Disconnected trace")
 		}
 		entry = parentNode.Children[len(parentNode.Children)-1]
+	}
+}
+
+func (cta *CallTraceArena) Dump() {
+	for id, node := range cta.Arena {
+		log.Info("Node", "idx", id, "node", node, "parent", node.Parent, "children", node.Children)
 	}
 }
 
