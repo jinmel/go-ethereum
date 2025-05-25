@@ -90,7 +90,7 @@ func (t *brontesTracer) OnExit(depth int, output []byte, gasUsed uint64, err err
 
 func (t *brontesTracer) OnTxStart(env *tracing.VMContext, tx *types.Transaction, from common.Address) {
 	// Initialize the BrontesInspector
-	t.inspector = brontes.NewBrontesInspector(brontes.DefaultTracingInspectorConfig, t.chainConfig, env, tx, from)
+	t.inspector = brontes.NewBrontesInspector(brontes.ArbitrumTracingInspectorConfig, t.chainConfig, env, tx, from)
 	t.tx = tx
 }
 

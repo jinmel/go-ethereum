@@ -45,6 +45,17 @@ var DefaultTracingInspectorConfig = TracingInspectorConfig{
 	RecordLogs:             true,
 }
 
+var ArbitrumTracingInspectorConfig = TracingInspectorConfig{
+	RecordSteps:           false,
+	RecordMemorySnapshots: false,
+	RecordStackSnapshots:  StackSnapshotTypeNone,
+	RecordStateDiff:       false,
+	// Some arbitrum precompiles make a call to another function inside the precompile, panicing the brontes inspector
+	ExcludePrecompileCalls: false,
+	RecordCallReturnData:   true,
+	RecordLogs:             true,
+}
+
 type StackStep struct {
 	TraceIdx int
 	StepIdx  int
