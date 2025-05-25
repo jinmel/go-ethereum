@@ -15,7 +15,7 @@ func NewCallTraceArena() *CallTraceArena {
 // PushTrace pushes a new trace into the arena, returning the trace ID.
 // It will attach the trace to its parent if kind.IsAttachToParent() returns true.
 func (cta *CallTraceArena) PushTrace(entry int, kind PushTraceKind, newTrace CallTrace) int {
-	log.Trace("Pushing trace", "newTrace", newTrace)
+	log.Trace("Pushing trace", "newTrace", newTrace, "kind", kind, "entry", entry)
 	for {
 		// If newTrace is the entry/root node, update the root and return 0.
 		if newTrace.Depth == 0 {

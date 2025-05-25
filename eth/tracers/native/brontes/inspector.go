@@ -74,6 +74,7 @@ func NewBrontesInspector(
 	rules := chainConfig.Rules(env.BlockNumber, env.Random != nil, env.Time, env.ArbOSVersion)
 	precompiles := vm.ActivePrecompiles(rules)
 	for _, precompile := range precompiles {
+		log.Trace("Register Active precompile", "precompile", precompile)
 		activePrecompiles[precompile] = struct{}{}
 	}
 	specId := chainConfig.LatestFork(env.Time, env.ArbOSVersion)
