@@ -153,12 +153,25 @@ func (b *BrontesInspector) startTraceOnCall(address common.Address, inputData []
 		selfDestructRefundTarget = &refundAddr
 	}
 
+	// Safely copy the input data to avoid memory corruption
+	var dataCopy []byte
+	if len(inputData) > 0 {
+		dataCopy = make([]byte, len(inputData))
+		copy(dataCopy, inputData)
+	}
+
+	// Safely copy the value to avoid potential mutations
+	var valueCopy *big.Int
+	if value != nil {
+		valueCopy = new(big.Int).Set(value)
+	}
+
 	trace := CallTrace{
 		Depth:                    depth,
 		Address:                  address,
 		Kind:                     kind,
-		Data:                     inputData,
-		Value:                    value,
+		Data:                     dataCopy,
+		Value:                    valueCopy,
 		Caller:                   caller,
 		MaybePrecompile:          maybePrecompile,
 		GasLimit:                 gasLimit,
@@ -174,9 +187,13 @@ func (b *BrontesInspector) fillTraceOnCallEnd(gasUsed uint64, err error, reverte
 
 	trace.GasUsed = gasUsed
 	trace.Success = !reverted
-	trace.Output = output
 
-	b.LastCallReturnData = &output
+	// Safely copy the output data to avoid memory corruption
+
+	outputCopy := make([]byte, len(output))
+	copy(outputCopy, output)
+	trace.Output = outputCopy
+	b.LastCallReturnData = &outputCopy
 
 	// if createdAddress != nil {
 	// 	trace.Address = *createdAddress
@@ -193,12 +210,19 @@ func (b *BrontesInspector) startStep(pc uint64, op byte, gas, cost uint64, scope
 
 	var recordedMemory RecordedMemory
 	if b.Config.RecordMemorySnapshots {
-		recordedMemory = RecordedMemory{Data: scope.MemoryData()}
+		// Safely copy memory data to avoid corruption
+		memData := scope.MemoryData()
+		memCopy := make([]byte, len(memData))
+		copy(memCopy, memData)
+		recordedMemory = RecordedMemory{Data: memCopy}
 	}
 
 	var stackData []uint256.Int
 	if b.Config.RecordStackSnapshots == StackSnapshotTypeFull {
-		stackData = scope.StackData()
+		// Safely copy stack data to avoid corruption
+		originalStack := scope.StackData()
+		stackData = make([]uint256.Int, len(originalStack))
+		copy(stackData, originalStack)
 	}
 
 	// Leaving out Stack and Memory snapshots empty for now.
@@ -551,8 +575,22 @@ func (b *BrontesInspector) OnLog(log *types.Log) {
 	traceIdx := b.lastTraceIdx()
 	traceNode := &b.Traces.Arena[traceIdx]
 	traceNode.Ordering = append(traceNode.Ordering, NewLogCallOrderLog(len(traceNode.Logs)))
+
+	// Safely copy log data to avoid memory corruption
+	var topicsCopy []common.Hash
+	if len(log.Topics) > 0 {
+		topicsCopy = make([]common.Hash, len(log.Topics))
+		copy(topicsCopy, log.Topics)
+	}
+
+	var dataCopy []byte
+	if len(log.Data) > 0 {
+		dataCopy = make([]byte, len(log.Data))
+		copy(dataCopy, log.Data)
+	}
+
 	traceNode.Logs = append(traceNode.Logs, LogData{
-		Topics: log.Topics,
-		Data:   log.Data,
+		Topics: topicsCopy,
+		Data:   dataCopy,
 	})
 }

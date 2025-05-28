@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers"
@@ -71,7 +72,8 @@ func (t *brontesTracer) OnEnter(depth int, typ byte, from common.Address, to com
 	if t.interrupt.Load() {
 		return
 	}
-	ethlog.Debug("BrontesTracer: OnEnter", "depth", depth, "typ", typ, "from", from.Hex(), "to", to.Hex(), "input", input, "gas", gas, "value", value)
+	inputHex := hexutil.Encode(input)
+	ethlog.Debug("BrontesTracer: OnEnter", "depth", depth, "typ", typ, "from", from.Hex(), "to", to.Hex(), "input", inputHex, "gas", gas, "value", value)
 	err := t.inspector.OnEnter(depth, typ, from, to, input, gas, value)
 	if err != nil {
 		ethlog.Error("BrontesTracer: OnEnter", "error", err)
