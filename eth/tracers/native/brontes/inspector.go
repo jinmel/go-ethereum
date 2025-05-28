@@ -463,12 +463,19 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 
 func (b *BrontesInspector) ParityAction(node *CallTraceNode) *Action {
 	if node.Trace.Kind.IsAnyCall() {
+		// Safely copy the input data to avoid memory corruption
+		var dataCopy []byte
+		if len(node.Trace.Data) > 0 {
+			dataCopy = make([]byte, len(node.Trace.Data))
+			copy(dataCopy, node.Trace.Data)
+		}
+
 		inner := &CallAction{
 			From:     node.Trace.Caller,
 			To:       node.Trace.Address,
 			Value:    node.Trace.Value,
 			Gas:      node.Trace.GasLimit,
-			Input:    node.Trace.Data,
+			Input:    dataCopy,
 			CallType: node.Trace.Kind,
 		}
 		return &Action{
@@ -476,11 +483,17 @@ func (b *BrontesInspector) ParityAction(node *CallTraceNode) *Action {
 			Call: inner,
 		}
 	} else if node.Trace.Kind.IsAnyCreate() {
+		// Safely copy the input data to avoid memory corruption
+		var dataCopy []byte
+		if len(node.Trace.Data) > 0 {
+			dataCopy = make([]byte, len(node.Trace.Data))
+			copy(dataCopy, node.Trace.Data)
+		}
 		inner := &CreateAction{
 			From:  node.Trace.Caller,
 			Value: node.Trace.Value,
 			Gas:   node.Trace.GasLimit,
-			Init:  node.Trace.Data,
+			Init:  dataCopy,
 		}
 		return &Action{
 			Type:   ActionTypeCreate,
@@ -502,19 +515,31 @@ func (b *BrontesInspector) ParityAction(node *CallTraceNode) *Action {
 
 func (b *BrontesInspector) ParityTraceOutput(node *CallTraceNode) *TraceOutput {
 	if node.Trace.Kind.IsAnyCall() {
+		// Safely copy the output data to avoid memory corruption
+		var outputCopy []byte
+		if len(node.Trace.Output) > 0 {
+			outputCopy = make([]byte, len(node.Trace.Output))
+			copy(outputCopy, node.Trace.Output)
+		}
 		return &TraceOutput{
 			Type: TraceOutputTypeCall,
 			Call: &CallOutput{
 				GasUsed: node.Trace.GasUsed,
-				Output:  node.Trace.Output,
+				Output:  outputCopy,
 			},
 		}
 	} else if node.Trace.Kind.IsAnyCreate() {
+		// Safely copy the output data to avoid memory corruption
+		var outputCopy []byte
+		if len(node.Trace.Output) > 0 {
+			outputCopy = make([]byte, len(node.Trace.Output))
+			copy(outputCopy, node.Trace.Output)
+		}
 		return &TraceOutput{
 			Type: TraceOutputTypeCreate,
 			Create: &CreateOutput{
 				GasUsed: node.Trace.GasUsed,
-				Code:    node.Trace.Output,
+				Code:    outputCopy,
 				Address: node.Trace.Address,
 			},
 		}
