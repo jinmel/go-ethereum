@@ -187,9 +187,10 @@ func (b *BrontesInspector) fillTraceOnCallEnd(gasUsed uint64, err error, reverte
 
 	trace.GasUsed = gasUsed
 	trace.Success = !reverted
+	trace.Error = err
+	trace.Reverted = reverted
 
 	// Safely copy the output data to avoid memory corruption
-
 	outputCopy := make([]byte, len(output))
 	copy(outputCopy, output)
 	trace.Output = outputCopy
@@ -446,13 +447,13 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 	} else {
 		result = b.ParityTraceOutput(node)
 	}
-	instructionErrorMsg := b.AsErrorMsg(node)
+	errorMsg := b.AsErrorMsg(node)
 
 	// Pretty print the TransactionTrace for debugging purposes
 	txTrace := &TransactionTrace{
 		Type:         action.Type,
 		Action:       action,
-		Error:        instructionErrorMsg,
+		Error:        errorMsg,
 		Result:       result,
 		TraceAddress: traceAddress,
 		Subtraces:    uint(len(node.Children)),
@@ -553,8 +554,7 @@ func (b *BrontesInspector) AsErrorMsg(node *CallTraceNode) *string {
 		return nil
 	}
 
-	// Since we don't have the Trace.Status field, let's just return a generic error message.
-	errMsg := "Instruction failed"
+	errMsg := node.Trace.Error.Error()
 	return &errMsg
 }
 
