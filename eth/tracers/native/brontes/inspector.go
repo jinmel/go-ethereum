@@ -154,11 +154,8 @@ func (b *BrontesInspector) startTraceOnCall(address common.Address, inputData []
 	}
 
 	// Safely copy the input data to avoid memory corruption
-	var dataCopy []byte
-	if len(inputData) > 0 {
-		dataCopy = make([]byte, len(inputData))
-		copy(dataCopy, inputData)
-	}
+	dataCopy := make([]byte, len(inputData))
+	copy(dataCopy, inputData)
 
 	// Safely copy the value to avoid potential mutations
 	var valueCopy *big.Int
@@ -465,11 +462,8 @@ func (b *BrontesInspector) buildTxTrace(node *CallTraceNode, traceAddress []uint
 func (b *BrontesInspector) ParityAction(node *CallTraceNode) *Action {
 	if node.Trace.Kind.IsAnyCall() {
 		// Safely copy the input data to avoid memory corruption
-		var dataCopy []byte
-		if len(node.Trace.Data) > 0 {
-			dataCopy = make([]byte, len(node.Trace.Data))
-			copy(dataCopy, node.Trace.Data)
-		}
+		dataCopy := make([]byte, len(node.Trace.Data))
+		copy(dataCopy, node.Trace.Data)
 
 		inner := &CallAction{
 			From:     node.Trace.Caller,
@@ -485,11 +479,8 @@ func (b *BrontesInspector) ParityAction(node *CallTraceNode) *Action {
 		}
 	} else if node.Trace.Kind.IsAnyCreate() {
 		// Safely copy the input data to avoid memory corruption
-		var dataCopy []byte
-		if len(node.Trace.Data) > 0 {
-			dataCopy = make([]byte, len(node.Trace.Data))
-			copy(dataCopy, node.Trace.Data)
-		}
+		dataCopy := make([]byte, len(node.Trace.Data))
+		copy(dataCopy, node.Trace.Data)
 		inner := &CreateAction{
 			From:  node.Trace.Caller,
 			Value: node.Trace.Value,
@@ -517,11 +508,8 @@ func (b *BrontesInspector) ParityAction(node *CallTraceNode) *Action {
 func (b *BrontesInspector) ParityTraceOutput(node *CallTraceNode) *TraceOutput {
 	if node.Trace.Kind.IsAnyCall() {
 		// Safely copy the output data to avoid memory corruption
-		var outputCopy []byte
-		if len(node.Trace.Output) > 0 {
-			outputCopy = make([]byte, len(node.Trace.Output))
-			copy(outputCopy, node.Trace.Output)
-		}
+		outputCopy := make([]byte, len(node.Trace.Output))
+		copy(outputCopy, node.Trace.Output)
 		return &TraceOutput{
 			Type: TraceOutputTypeCall,
 			Call: &CallOutput{
@@ -531,11 +519,8 @@ func (b *BrontesInspector) ParityTraceOutput(node *CallTraceNode) *TraceOutput {
 		}
 	} else if node.Trace.Kind.IsAnyCreate() {
 		// Safely copy the output data to avoid memory corruption
-		var outputCopy []byte
-		if len(node.Trace.Output) > 0 {
-			outputCopy = make([]byte, len(node.Trace.Output))
-			copy(outputCopy, node.Trace.Output)
-		}
+		outputCopy := make([]byte, len(node.Trace.Output))
+		copy(outputCopy, node.Trace.Output)
 		return &TraceOutput{
 			Type: TraceOutputTypeCreate,
 			Create: &CreateOutput{
@@ -602,17 +587,10 @@ func (b *BrontesInspector) OnLog(log *types.Log) {
 	traceNode.Ordering = append(traceNode.Ordering, NewLogCallOrderLog(len(traceNode.Logs)))
 
 	// Safely copy log data to avoid memory corruption
-	var topicsCopy []common.Hash
-	if len(log.Topics) > 0 {
-		topicsCopy = make([]common.Hash, len(log.Topics))
-		copy(topicsCopy, log.Topics)
-	}
-
-	var dataCopy []byte
-	if len(log.Data) > 0 {
-		dataCopy = make([]byte, len(log.Data))
-		copy(dataCopy, log.Data)
-	}
+	topicsCopy := make([]common.Hash, len(log.Topics))
+	copy(topicsCopy, log.Topics)
+	dataCopy := make([]byte, len(log.Data))
+	copy(dataCopy, log.Data)
 
 	traceNode.Logs = append(traceNode.Logs, LogData{
 		Topics: topicsCopy,
