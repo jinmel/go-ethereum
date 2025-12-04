@@ -107,7 +107,7 @@ func flatCallTracerTestRunner(tracerName string, filename string, dirPath string
 		return fmt.Errorf("failed to create call tracer: %v", err)
 	}
 
-	msg, err := core.TransactionToMessage(tx, signer, context.BaseFee, core.MessageReplayMode)
+	msg, err := core.TransactionToMessage(tx, signer, context.BaseFee, core.NewMessageReplayContext())
 	if err != nil {
 		return fmt.Errorf("failed to prepare transaction for tracing: %v", err)
 	}
@@ -201,7 +201,7 @@ func BenchmarkFlatCallTracer(b *testing.B) {
 	for _, file := range files {
 		filename := strings.TrimPrefix(file, "testdata/call_tracer_flat/")
 		b.Run(camel(strings.TrimSuffix(filename, ".json")), func(b *testing.B) {
-			for n := 0; n < b.N; n++ {
+			for b.Loop() {
 				err := flatCallTracerTestRunner("flatCallTracer", filename, "call_tracer_flat", b)
 				if err != nil {
 					b.Fatal(err)

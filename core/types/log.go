@@ -17,6 +17,9 @@
 package types
 
 import (
+	"math/big"
+	"slices"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
@@ -45,6 +48,8 @@ type Log struct {
 	TxIndex uint `json:"transactionIndex" rlp:"-"`
 	// hash of the block in which the transaction was included
 	BlockHash common.Hash `json:"blockHash" rlp:"-"`
+	// timestamp of the block in which the transaction was included
+	BlockTimestamp uint64 `json:"blockTimestamp" rlp:"-"`
 	// index of the log in the block
 	Index uint `json:"logIndex" rlp:"-"`
 
@@ -54,8 +59,44 @@ type Log struct {
 }
 
 type logMarshaling struct {
-	Data        hexutil.Bytes
-	BlockNumber hexutil.Uint64
-	TxIndex     hexutil.Uint
-	Index       hexutil.Uint
+	Data           hexutil.Bytes
+	BlockNumber    hexutil.Uint64
+	TxIndex        hexutil.Uint
+	BlockTimestamp hexutil.Uint64
+	Index          hexutil.Uint
+}
+
+// FilterLogs creates a slice of logs matching the given criteria.
+func FilterLogs(logs []*Log, fromBlock, toBlock *big.Int, addresses []common.Address, topics [][]common.Hash) []*Log {
+	var check = func(log *Log) bool {
+		if fromBlock != nil && fromBlock.Int64() >= 0 && fromBlock.Uint64() > log.BlockNumber {
+			return false
+		}
+		if toBlock != nil && toBlock.Int64() >= 0 && toBlock.Uint64() < log.BlockNumber {
+			return false
+		}
+		if len(addresses) > 0 && !slices.Contains(addresses, log.Address) {
+			return false
+		}
+		// If the to filtered topics is greater than the amount of topics in logs, skip.
+		if len(topics) > len(log.Topics) {
+			return false
+		}
+		for i, sub := range topics {
+			if len(sub) == 0 {
+				continue // empty rule set == wildcard
+			}
+			if !slices.Contains(sub, log.Topics[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	var ret []*Log
+	for _, log := range logs {
+		if check(log) {
+			ret = append(ret, log)
+		}
+	}
+	return ret
 }

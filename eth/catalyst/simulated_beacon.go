@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -95,11 +96,13 @@ type SimulatedBeacon struct {
 	engineAPI          *ConsensusAPI
 	curForkchoiceState engine.ForkchoiceStateV1
 	lastBlockTime      uint64
+
+	blobsBundleProvider map[common.Hash]*engine.BlobsBundle
 }
 
 func payloadVersion(config *params.ChainConfig, time uint64, header *types.Header) engine.PayloadVersion {
 	switch config.LatestFork(time, types.DeserializeHeaderExtraInformation(header).ArbOSFormatVersion) {
-	case forks.Prague, forks.Cancun:
+	case forks.BPO5, forks.BPO4, forks.BPO3, forks.BPO2, forks.BPO1, forks.Osaka, forks.Prague, forks.Cancun:
 		return engine.PayloadV3
 	case forks.Paris, forks.Shanghai:
 		return engine.PayloadV2
@@ -108,7 +111,7 @@ func payloadVersion(config *params.ChainConfig, time uint64, header *types.Heade
 }
 
 // NewSimulatedBeacon constructs a new simulated beacon chain.
-func NewSimulatedBeacon(period uint64, eth *eth.Ethereum) (*SimulatedBeacon, error) {
+func NewSimulatedBeacon(period uint64, feeRecipient common.Address, eth *eth.Ethereum) (*SimulatedBeacon, error) {
 	block := eth.BlockChain().CurrentBlock()
 	current := engine.ForkchoiceStateV1{
 		HeadBlockHash:      block.Hash(),
@@ -124,13 +127,18 @@ func NewSimulatedBeacon(period uint64, eth *eth.Ethereum) (*SimulatedBeacon, err
 			return nil, err
 		}
 	}
+
+	// cap the dev mode period to a reasonable maximum value to avoid
+	// overflowing the time.Duration (int64) that it will occupy
+	const maxPeriod = uint64(math.MaxInt64 / time.Second)
 	return &SimulatedBeacon{
 		eth:                eth,
-		period:             period,
+		period:             min(period, maxPeriod),
 		shutdownCh:         make(chan struct{}),
 		engineAPI:          engineAPI,
 		lastBlockTime:      block.Time,
 		curForkchoiceState: current,
+		feeRecipient:       feeRecipient,
 	}, nil
 }
 
@@ -205,6 +213,12 @@ func (c *SimulatedBeacon) sealBlock(withdrawals []*types.Withdrawal, timestamp u
 		return errors.New("chain rewind prevented invocation of payload creation")
 	}
 
+	// If the payload was already known, we can skip the rest of the process.
+	// This edge case is possible due to a race condition between seal and debug.setHead.
+	if fcResponse.PayloadStatus.Status == engine.VALID && fcResponse.PayloadID == nil {
+		return nil
+	}
+
 	envelope, err := c.engineAPI.getPayload(*fcResponse.PayloadID, true)
 	if err != nil {
 		return err
@@ -258,6 +272,10 @@ func (c *SimulatedBeacon) sealBlock(withdrawals []*types.Withdrawal, timestamp u
 		return err
 	}
 	c.lastBlockTime = payload.Timestamp
+
+	if c.blobsBundleProvider != nil && envelope.BlobsBundle != nil {
+		c.blobsBundleProvider[payload.BlockHash] = envelope.BlobsBundle
+	}
 	return nil
 }
 

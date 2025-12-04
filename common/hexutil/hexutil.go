@@ -33,11 +33,11 @@ package hexutil
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 	"math/big"
+	"math/bits"
 	"strconv"
 )
-
-const uintBits = 32 << (uint64(^uint(0)) >> 63)
 
 // Errors
 var (
@@ -48,7 +48,7 @@ var (
 	ErrEmptyNumber   = &decError{"hex string \"0x\""}
 	ErrLeadingZero   = &decError{"hex number with leading zero digits"}
 	ErrUint64Range   = &decError{"hex number > 64 bits"}
-	ErrUintRange     = &decError{fmt.Sprintf("hex number > %d bits", uintBits)}
+	ErrUintRange     = &decError{fmt.Sprintf("hex number > %d bits", bits.UintSize)}
 	ErrBig256Range   = &decError{"hex number > 256 bits"}
 )
 
@@ -82,6 +82,9 @@ func MustDecode(input string) []byte {
 
 // Encode encodes b as a hex string with 0x prefix.
 func Encode(b []byte) string {
+	if len(b) > (math.MaxInt-2)/2 {
+		panic(fmt.Sprintf("hexutil.Encode: byte slice too long (%d bytes)", len(b)))
+	}
 	enc := make([]byte, len(b)*2+2)
 	copy(enc, "0x")
 	hex.Encode(enc[2:], b)

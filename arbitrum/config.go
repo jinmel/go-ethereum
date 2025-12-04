@@ -1,10 +1,11 @@
 package arbitrum
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/params"
 	flag "github.com/spf13/pflag"
 )
 
@@ -21,9 +22,9 @@ type Config struct {
 	// RPCEVMTimeout is the global timeout for eth-call.
 	RPCEVMTimeout time.Duration `koanf:"evm-timeout"`
 
-	// Parameters for the bloom indexer
-	BloomBitsBlocks uint64 `koanf:"bloom-bits-blocks"`
-	BloomConfirms   uint64 `koanf:"bloom-confirms"`
+	LogHistory           uint64 `koanf:"log-history"`            // The maximum number of blocks from head where a log search index is maintained.
+	LogNoHistory         bool   `koanf:"log-no-history"`         // No log search index is maintained.
+	LogExportCheckpoints string `koanf:"log-export-checkpoints"` // export log index checkpoints to file
 
 	// Parameters for the filter system
 	FilterLogCacheSize int           `koanf:"filter-log-cache-size"`
@@ -39,6 +40,31 @@ type Config struct {
 	MaxRecreateStateDepth  int64         `koanf:"max-recreate-state-depth"`
 
 	AllowMethod []string `koanf:"allow-method"`
+
+	BlockRedirects     []BlockRedirectConfig `koanf:"block-redirects"`
+	BlockRedirectsList string                `koanf:"block-redirects-list"`
+
+	// EIP-7966: eth_sendRawTransactionSync timeouts
+	TxSyncDefaultTimeout time.Duration `koanf:"tx-sync-default-timeout"`
+	TxSyncMaxTimeout     time.Duration `koanf:"tx-sync-max-timeout"`
+}
+
+type BlockRedirectConfig struct {
+	URL       string        `koanf:"url"`
+	Timeout   time.Duration `koanf:"timeout"`
+	LastBlock uint64        `koanf:"last-block"`
+}
+
+func (c *Config) Validate() error {
+	// BlockRedirectsList command line option overrides directly supplied BlockRedirects array of BlockRedirectConfig in the conf file
+	if c.BlockRedirectsList != "default" {
+		var blockRedirects []BlockRedirectConfig
+		if err := json.Unmarshal([]byte(c.BlockRedirectsList), &blockRedirects); err != nil {
+			return fmt.Errorf("failed to parse rpc block-redirects-list string: %w", err)
+		}
+		c.BlockRedirects = blockRedirects
+	}
+	return nil
 }
 
 type ArbDebugConfig struct {
@@ -51,8 +77,9 @@ func ConfigAddOptions(prefix string, f *flag.FlagSet) {
 	f.Float64(prefix+".tx-fee-cap", DefaultConfig.RPCTxFeeCap, "cap on transaction fee (in ether) that can be sent via the RPC APIs (0 = no cap)")
 	f.Bool(prefix+".tx-allow-unprotected", DefaultConfig.TxAllowUnprotected, "allow transactions that aren't EIP-155 replay protected to be submitted over the RPC")
 	f.Duration(prefix+".evm-timeout", DefaultConfig.RPCEVMTimeout, "timeout used for eth_call (0=infinite)")
-	f.Uint64(prefix+".bloom-bits-blocks", DefaultConfig.BloomBitsBlocks, "number of blocks a single bloom bit section vector holds")
-	f.Uint64(prefix+".bloom-confirms", DefaultConfig.BloomConfirms, "number of confirmation blocks before a bloom section is considered final")
+	f.Uint64(prefix+".log-history", DefaultConfig.LogHistory, "maximum number of blocks from head where a log search index is maintained")
+	f.Bool(prefix+".log-no-history", DefaultConfig.LogNoHistory, "no log search index is maintained")
+	f.String(prefix+".log-export-checkpoints", DefaultConfig.LogExportCheckpoints, "export log index checkpoints to file")
 	f.Uint64(prefix+".feehistory-max-block-count", DefaultConfig.FeeHistoryMaxBlockCount, "max number of blocks a fee history request may cover")
 	f.String(prefix+".classic-redirect", DefaultConfig.ClassicRedirect, "url to redirect classic requests, use \"error:[CODE:]MESSAGE\" to return specified error instead of redirecting")
 	f.Duration(prefix+".classic-redirect-timeout", DefaultConfig.ClassicRedirectTimeout, "timeout for forwarded classic requests, where 0 = no timeout")
@@ -63,6 +90,9 @@ func ConfigAddOptions(prefix string, f *flag.FlagSet) {
 	arbDebug := DefaultConfig.ArbDebug
 	f.Uint64(prefix+".arbdebug.block-range-bound", arbDebug.BlockRangeBound, "bounds the number of blocks arbdebug calls may return")
 	f.Uint64(prefix+".arbdebug.timeout-queue-bound", arbDebug.TimeoutQueueBound, "bounds the length of timeout queues arbdebug calls may return")
+	f.String(prefix+".block-redirects-list", DefaultConfig.BlockRedirectsList, "array of node configs to redirect block requests given as a json string. time duration should be supplied in number indicating nanoseconds")
+	f.Duration(prefix+".tx-sync-default-timeout", DefaultConfig.TxSyncDefaultTimeout, "default timeout for eth_sendRawTransactionSync")
+	f.Duration(prefix+".tx-sync-max-timeout", DefaultConfig.TxSyncMaxTimeout, "maximum allowed timeout for eth_sendRawTransactionSync ")
 }
 
 const (
@@ -76,9 +106,8 @@ var DefaultConfig = Config{
 	RPCGasCap:               ethconfig.Defaults.RPCGasCap,   // 50,000,000
 	RPCTxFeeCap:             ethconfig.Defaults.RPCTxFeeCap, // 1 ether
 	TxAllowUnprotected:      true,
-	RPCEVMTimeout:           ethconfig.Defaults.RPCEVMTimeout, // 5 seconds
-	BloomBitsBlocks:         params.BloomBitsBlocks * 4,       // we generally have smaller blocks
-	BloomConfirms:           params.BloomConfirms,
+	RPCEVMTimeout:           ethconfig.Defaults.RPCEVMTimeout,  // 5 seconds
+	LogHistory:              ethconfig.Defaults.LogHistory * 4, // we generally have smaller blocks
 	FilterLogCacheSize:      32,
 	FilterTimeout:           5 * time.Minute,
 	FeeHistoryMaxBlockCount: 1024,
@@ -89,4 +118,8 @@ var DefaultConfig = Config{
 		BlockRangeBound:   256,
 		TimeoutQueueBound: 512,
 	},
+	BlockRedirectsList: "default",
+	// EIP-7966: eth_sendRawTransactionSync timeouts
+	TxSyncDefaultTimeout: ethconfig.Defaults.TxSyncDefaultTimeout,
+	TxSyncMaxTimeout:     ethconfig.Defaults.TxSyncMaxTimeout,
 }

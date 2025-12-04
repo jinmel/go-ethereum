@@ -17,6 +17,7 @@
 package rawdb
 
 import (
+	"encoding/binary"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -26,7 +27,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
+)
+
+var (
+	txIndexerTail                           = metrics.NewRegisteredGauge("txindexer/tail", nil)
+	txIndexerUnindexedBlocksHistogram       = metrics.NewRegisteredHistogram("txindexer/unindexed/blocks/count", nil, metrics.NewBoundedHistogramSample())
+	txIndexerUnindexedTransactionsHistogram = metrics.NewRegisteredHistogram("txindexer/unindexed/transactions/count", nil, metrics.NewBoundedHistogramSample())
 )
 
 // InitDatabaseFromFreezer reinitializes an empty database from a previous batch
@@ -92,7 +100,7 @@ type blockTxHashes struct {
 // number(s) given, and yields the hashes on a channel. If there is a signal
 // received from interrupt channel, the iteration will be aborted and result
 // channel will be closed.
-func iterateTransactions(db ethdb.Database, from uint64, to uint64, reverse bool, interrupt chan struct{}) chan *blockTxHashes {
+func iterateTransactions(db ethdb.Database, from uint64, to uint64, reverse bool, interrupt chan struct{}, maxThreads int) chan *blockTxHashes {
 	// One thread sequentially reads data from db
 	type numberRlp struct {
 		number uint64
@@ -102,8 +110,14 @@ func iterateTransactions(db ethdb.Database, from uint64, to uint64, reverse bool
 		return nil
 	}
 	threads := to - from
-	if cpus := runtime.NumCPU(); threads > uint64(cpus) {
-		threads = uint64(cpus)
+	if maxThreads > 0 {
+		if threads > uint64(maxThreads) {
+			threads = uint64(maxThreads)
+		}
+	} else {
+		if cpus := runtime.NumCPU(); threads > uint64(cpus) {
+			threads = uint64(cpus)
+		}
 	}
 	var (
 		rlpCh    = make(chan *numberRlp, threads*2)     // we send raw rlp over this channel
@@ -117,7 +131,7 @@ func iterateTransactions(db ethdb.Database, from uint64, to uint64, reverse bool
 		}
 		defer close(rlpCh)
 		for n != end {
-			data := ReadCanonicalBodyRLP(db, n)
+			data := ReadCanonicalBodyRLP(db, n, nil)
 			// Feed the block to the aggregator, or abort on interrupt
 			select {
 			case rlpCh <- &numberRlp{n, data}:
@@ -178,13 +192,13 @@ func iterateTransactions(db ethdb.Database, from uint64, to uint64, reverse bool
 //
 // There is a passed channel, the whole procedure will be interrupted if any
 // signal received.
-func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool, report bool) {
+func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool, report bool, threads int) {
 	// short circuit for invalid range
 	if from >= to {
 		return
 	}
 	var (
-		hashesCh = iterateTransactions(db, from, to, true, interrupt)
+		hashesCh = iterateTransactions(db, from, to, true, interrupt, threads)
 		batch    = db.NewBatch()
 		start    = time.Now()
 		logged   = start.Add(-7 * time.Second)
@@ -223,6 +237,7 @@ func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan
 					log.Crit("Failed writing batch to db", "error", err)
 					return
 				}
+				txIndexerTail.Update(int64(lastNum))
 				batch.Reset()
 			}
 			// If we've spent too much time already, notify the user of what we're doing
@@ -240,6 +255,7 @@ func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan
 		log.Crit("Failed writing batch to db", "error", err)
 		return
 	}
+	txIndexerTail.Update(int64(lastNum))
 	logger := log.Debug
 	if report {
 		logger = log.Info
@@ -261,26 +277,26 @@ func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan
 //
 // There is a passed channel, the whole procedure will be interrupted if any
 // signal received.
-func IndexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, report bool) {
-	indexTransactions(db, from, to, interrupt, nil, report)
+func IndexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, report bool, threads int) {
+	indexTransactions(db, from, to, interrupt, nil, report, threads)
 }
 
 // indexTransactionsForTesting is the internal debug version with an additional hook.
 func indexTransactionsForTesting(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
-	indexTransactions(db, from, to, interrupt, hook, false)
+	indexTransactions(db, from, to, interrupt, hook, false, 0)
 }
 
 // unindexTransactions removes txlookup indices of the specified block range.
 //
 // There is a passed channel, the whole procedure will be interrupted if any
 // signal received.
-func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool, report bool) {
+func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool, report bool, threads int) {
 	// short circuit for invalid range
 	if from >= to {
 		return
 	}
 	var (
-		hashesCh = iterateTransactions(db, from, to, false, interrupt)
+		hashesCh = iterateTransactions(db, from, to, false, interrupt, threads)
 		batch    = db.NewBatch()
 		start    = time.Now()
 		logged   = start.Add(-7 * time.Second)
@@ -319,6 +335,7 @@ func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt ch
 					log.Crit("Failed writing batch to db", "error", err)
 					return
 				}
+				txIndexerTail.Update(int64(nextNum))
 				batch.Reset()
 			}
 			// If we've spent too much time already, notify the user of what we're doing
@@ -336,6 +353,7 @@ func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt ch
 		log.Crit("Failed writing batch to db", "error", err)
 		return
 	}
+	txIndexerTail.Update(int64(nextNum))
 	logger := log.Debug
 	if report {
 		logger = log.Info
@@ -346,6 +364,8 @@ func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt ch
 	default:
 		logger("Unindexed transactions", "blocks", blocks, "txs", txs, "tail", to, "elapsed", common.PrettyDuration(time.Since(start)))
 	}
+	txIndexerUnindexedBlocksHistogram.Update(int64(blocks))
+	txIndexerUnindexedTransactionsHistogram.Update(int64(txs))
 }
 
 // UnindexTransactions removes txlookup indices of the specified block range.
@@ -353,11 +373,46 @@ func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt ch
 //
 // There is a passed channel, the whole procedure will be interrupted if any
 // signal received.
-func UnindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, report bool) {
-	unindexTransactions(db, from, to, interrupt, nil, report)
+func UnindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, report bool, threads int) {
+	unindexTransactions(db, from, to, interrupt, nil, report, threads)
 }
 
 // unindexTransactionsForTesting is the internal debug version with an additional hook.
 func unindexTransactionsForTesting(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
-	unindexTransactions(db, from, to, interrupt, hook, false)
+	unindexTransactions(db, from, to, interrupt, hook, false, 0)
+}
+
+// PruneTransactionIndex removes all tx index entries below a certain block number.
+func PruneTransactionIndex(db ethdb.Database, pruneBlock uint64) {
+	tail := ReadTxIndexTail(db)
+	if tail == nil || *tail > pruneBlock {
+		return // no index, or index ends above pruneBlock
+	}
+	// There are blocks below pruneBlock in the index. Iterate the entire index to remove
+	// their entries. Note if this fails, the index is messed up, but tail still points to
+	// the old tail.
+	var count, removed int
+	DeleteAllTxLookupEntries(db, func(txhash common.Hash, v []byte) bool {
+		count++
+		if count%10000000 == 0 {
+			log.Info("Pruning tx index", "count", count, "removed", removed)
+		}
+		if len(v) > 8 {
+			log.Error("Skipping legacy tx index entry", "hash", txhash)
+			return false
+		}
+		bn := decodeNumber(v)
+		if bn < pruneBlock {
+			removed++
+			return true
+		}
+		return false
+	})
+	WriteTxIndexTail(db, pruneBlock)
+}
+
+func decodeNumber(b []byte) uint64 {
+	var numBuffer [8]byte
+	copy(numBuffer[8-len(b):], b)
+	return binary.BigEndian.Uint64(numBuffer[:])
 }

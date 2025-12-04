@@ -30,10 +30,12 @@ type ChunkedAssociativeArray struct {
 }
 
 func NewChunkedAssociativeArray(chunkSize int) *ChunkedAssociativeArray {
+	cache := new(deque.Deque[*AssociativeArrayChunk])
+	cache.SetBaseCap(ChunkedAssociativeArrayMaxCacheSize)
 	return &ChunkedAssociativeArray{
 		defaultChunkSize: chunkSize,
-		chunksCache:      deque.New[*AssociativeArrayChunk](ChunkedAssociativeArrayMaxCacheSize, ChunkedAssociativeArrayMaxCacheSize),
-		chunks:           deque.New[*AssociativeArrayChunk](),
+		chunksCache:      cache,
+		chunks:           new(deque.Deque[*AssociativeArrayChunk]),
 	}
 }
 
@@ -172,9 +174,18 @@ func (caa *ChunkedAssociativeArray) Trim(startKey int64, endKey int64) {
 	})
 
 	// Remove chunks that only contain elements that are too small
-	for i := 0; i < indexAfterStartKey; i++ {
-		chunk := caa.chunks.PopFront()
-		caa.freeChunk(chunk)
+	if indexAfterStartKey == -1 {
+		// All chunks contain only elements that are too small, remove all
+		for caa.chunks.Len() > 0 {
+			chunk := caa.chunks.PopFront()
+			caa.freeChunk(chunk)
+		}
+	} else {
+		// Remove chunks before the first valid chunk
+		for i := 0; i < indexAfterStartKey; i++ {
+			chunk := caa.chunks.PopFront()
+			caa.freeChunk(chunk)
+		}
 	}
 }
 

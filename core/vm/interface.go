@@ -20,11 +20,11 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/stateless"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie/utils"
 	"github.com/holiman/uint256"
@@ -33,12 +33,12 @@ import (
 // StateDB is an EVM database for full state querying.
 type StateDB interface {
 	// Arbitrum: manage Stylus wasms
-	ActivateWasm(moduleHash common.Hash, asmMap map[ethdb.WasmTarget][]byte)
-	TryGetActivatedAsm(target ethdb.WasmTarget, moduleHash common.Hash) (asm []byte, err error)
-	TryGetActivatedAsmMap(targets []ethdb.WasmTarget, moduleHash common.Hash) (asmMap map[ethdb.WasmTarget][]byte, err error)
+	ActivateWasm(moduleHash common.Hash, asmMap map[rawdb.WasmTarget][]byte) error
+	ActivatedAsm(target rawdb.WasmTarget, moduleHash common.Hash) []byte
+	ActivatedAsmMap(targets []rawdb.WasmTarget, moduleHash common.Hash) (asmMap map[rawdb.WasmTarget][]byte, missingTargets []rawdb.WasmTarget, err error)
 	RecordCacheWasm(wasm state.CacheWasm)
 	RecordEvictWasm(wasm state.EvictWasm)
-	GetRecentWasms() state.RecentWasms
+	GetRecentWasms() *state.RecentWasms
 
 	// Arbitrum: track stylus's memory footprint
 	GetStylusPages() (uint16, uint16)
@@ -75,14 +75,14 @@ type StateDB interface {
 	GetCode(common.Address) []byte
 
 	// SetCode sets the new code for the address, and returns the previous code, if any.
-	SetCode(common.Address, []byte) []byte
+	SetCode(common.Address, []byte, tracing.CodeChangeReason) []byte
 	GetCodeSize(common.Address) int
 
 	AddRefund(uint64)
 	SubRefund(uint64)
 	GetRefund() uint64
 
-	GetCommittedState(common.Address, common.Hash) common.Hash
+	GetStateAndCommittedState(common.Address, common.Hash) (common.Hash, common.Hash)
 	GetState(common.Address, common.Hash) common.Hash
 	SetState(common.Address, common.Hash, common.Hash) common.Hash
 	GetStorageRoot(addr common.Address) common.Hash
@@ -102,7 +102,7 @@ type StateDB interface {
 	SelfDestruct6780(common.Address) (uint256.Int, bool)
 
 	// Exist reports whether the given account exists in state.
-	// Notably this should also return true for self-destructed accounts.
+	// Notably this also returns true for self-destructed accounts within the current transaction.
 	Exist(common.Address) bool
 	// Empty returns whether the given account is empty. Empty
 	// is defined according to EIP161 (balance = nonce = code = 0).
@@ -116,6 +116,8 @@ type StateDB interface {
 	// AddSlotToAccessList adds the given (address,slot) to the access list. This operation is safe to perform
 	// even if the feature/fork is not active yet
 	AddSlotToAccessList(addr common.Address, slot common.Hash)
+	// GetAccessList returns the access list
+	GetAccessList() (addresses map[common.Address]int, slots []map[common.Hash]struct{})
 
 	// PointCache returns the point cache used in computations
 	PointCache() *utils.PointCache

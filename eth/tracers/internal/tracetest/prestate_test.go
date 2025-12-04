@@ -99,7 +99,7 @@ func testPrestateTracer(tracerName string, dirPath string, t *testing.T) {
 				t.Fatalf("failed to create call tracer: %v", err)
 			}
 
-			msg, err := core.TransactionToMessage(tx, signer, context.BaseFee, core.MessageReplayMode)
+			msg, err := core.TransactionToMessage(tx, signer, context.BaseFee, core.NewMessageReplayContext())
 			if err != nil {
 				t.Fatalf("failed to prepare transaction for tracing: %v", err)
 			}
@@ -108,6 +108,9 @@ func testPrestateTracer(tracerName string, dirPath string, t *testing.T) {
 			vmRet, err := core.ApplyMessage(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
 			if err != nil {
 				t.Fatalf("failed to execute transaction: %v", err)
+			}
+			if vmRet.Failed() {
+				t.Logf("(warn) transaction failed: %v", vmRet.Err)
 			}
 			tracer.OnTxEnd(&types.Receipt{GasUsed: vmRet.UsedGas}, nil)
 			// Retrieve the trace result and compare against the expected

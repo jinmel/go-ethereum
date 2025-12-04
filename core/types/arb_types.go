@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -19,9 +20,9 @@ func (tx *Transaction) SkipNonceChecks() bool {
 	return tx.inner.skipNonceChecks()
 }
 
-// Returns true if disables requiring that sender is an EOA and not a contract
-func (tx *Transaction) SkipFromEOACheck() bool {
-	return tx.inner.skipFromEOACheck()
+// Returns true if disables requiring that transaction checks.
+func (tx *Transaction) SkipTransactionChecks() bool {
+	return tx.inner.skipTransactionChecks()
 }
 
 type fallbackError struct {
@@ -41,6 +42,14 @@ func (f fallbackError) Error() string  { return fallbackErrorMsg }
 
 var ErrUseFallback = fallbackError{}
 
+type ErrUseArchiveFallback struct {
+	BlockNum uint64
+}
+
+func (e *ErrUseArchiveFallback) Error() string {
+	return fmt.Sprintf("use archive fallback client for block %d", e.BlockNum)
+}
+
 type FallbackClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
@@ -58,16 +67,16 @@ func (tx *ArbitrumSubmitRetryableTx) skipNonceChecks() bool { return true }
 func (d *ArbitrumDepositTx) skipNonceChecks() bool          { return true }
 func (t *ArbitrumInternalTx) skipNonceChecks() bool         { return true }
 
-func (tx *LegacyTx) skipFromEOACheck() bool                  { return false }
-func (tx *AccessListTx) skipFromEOACheck() bool              { return false }
-func (tx *DynamicFeeTx) skipFromEOACheck() bool              { return false }
-func (tx *SetCodeTx) skipFromEOACheck() bool                 { return false }
-func (tx *ArbitrumUnsignedTx) skipFromEOACheck() bool        { return false }
-func (tx *ArbitrumContractTx) skipFromEOACheck() bool        { return true }
-func (tx *ArbitrumRetryTx) skipFromEOACheck() bool           { return true }
-func (tx *ArbitrumSubmitRetryableTx) skipFromEOACheck() bool { return true }
-func (d *ArbitrumDepositTx) skipFromEOACheck() bool          { return true }
-func (t *ArbitrumInternalTx) skipFromEOACheck() bool         { return true }
+func (tx *LegacyTx) skipTransactionChecks() bool                  { return false }
+func (tx *AccessListTx) skipTransactionChecks() bool              { return false }
+func (tx *DynamicFeeTx) skipTransactionChecks() bool              { return false }
+func (tx *SetCodeTx) skipTransactionChecks() bool                 { return false }
+func (tx *ArbitrumUnsignedTx) skipTransactionChecks() bool        { return false }
+func (tx *ArbitrumContractTx) skipTransactionChecks() bool        { return true }
+func (tx *ArbitrumRetryTx) skipTransactionChecks() bool           { return true }
+func (tx *ArbitrumSubmitRetryableTx) skipTransactionChecks() bool { return true }
+func (d *ArbitrumDepositTx) skipTransactionChecks() bool          { return true }
+func (t *ArbitrumInternalTx) skipTransactionChecks() bool         { return true }
 
 type ArbitrumUnsignedTx struct {
 	ChainId *big.Int
@@ -142,6 +151,21 @@ func (tx *ArbitrumUnsignedTx) effectiveGasPrice(dst *big.Int, baseFee *big.Int) 
 	return dst.Set(baseFee)
 }
 
+func (tx *ArbitrumUnsignedTx) sigHash(chainID *big.Int) common.Hash {
+	return prefixedRlpHash(
+		ArbitrumUnsignedTxType,
+		[]any{
+			chainID,
+			tx.From,
+			tx.Nonce,
+			tx.GasFeeCap,
+			tx.Gas,
+			tx.To,
+			tx.Value,
+			tx.Data,
+		})
+}
+
 type ArbitrumContractTx struct {
 	ChainId   *big.Int
 	RequestId common.Hash
@@ -210,6 +234,21 @@ func (tx *ArbitrumContractTx) effectiveGasPrice(dst *big.Int, baseFee *big.Int) 
 		return dst.Set(tx.GasFeeCap)
 	}
 	return dst.Set(baseFee)
+}
+
+func (tx *ArbitrumContractTx) sigHash(chainID *big.Int) common.Hash {
+	return prefixedRlpHash(
+		ArbitrumContractTxType,
+		[]any{
+			chainID,
+			tx.RequestId,
+			tx.From,
+			tx.GasFeeCap,
+			tx.Gas,
+			tx.To,
+			tx.Value,
+			tx.Data,
+		})
 }
 
 type ArbitrumRetryTx struct {
@@ -294,6 +333,25 @@ func (tx *ArbitrumRetryTx) effectiveGasPrice(dst *big.Int, baseFee *big.Int) *bi
 		return dst.Set(tx.GasFeeCap)
 	}
 	return dst.Set(baseFee)
+}
+
+func (tx *ArbitrumRetryTx) sigHash(chainID *big.Int) common.Hash {
+	return prefixedRlpHash(
+		ArbitrumRetryTxType,
+		[]any{
+			chainID,
+			tx.Nonce,
+			tx.From,
+			tx.GasFeeCap,
+			tx.Gas,
+			tx.To,
+			tx.Value,
+			tx.Data,
+			tx.TicketId,
+			tx.RefundTo,
+			tx.MaxRefund,
+			tx.SubmissionFeeRefund,
+		})
 }
 
 type ArbitrumSubmitRetryableTx struct {
@@ -415,6 +473,26 @@ func (tx *ArbitrumSubmitRetryableTx) data() []byte {
 	return data
 }
 
+func (tx *ArbitrumSubmitRetryableTx) sigHash(chainID *big.Int) common.Hash {
+	return prefixedRlpHash(
+		ArbitrumSubmitRetryableTxType,
+		[]any{
+			chainID,
+			tx.RequestId,
+			tx.From,
+			tx.L1BaseFee,
+			tx.DepositValue,
+			tx.GasFeeCap,
+			tx.Gas,
+			tx.RetryTo,
+			tx.RetryValue,
+			tx.Beneficiary,
+			tx.MaxSubmissionFee,
+			tx.FeeRefundAddr,
+			tx.RetryData,
+		})
+}
+
 type ArbitrumDepositTx struct {
 	ChainId     *big.Int
 	L1RequestId common.Hash
@@ -473,6 +551,18 @@ func (d *ArbitrumDepositTx) effectiveGasPrice(dst *big.Int, baseFee *big.Int) *b
 	return dst.Set(bigZero)
 }
 
+func (d *ArbitrumDepositTx) sigHash(chainID *big.Int) common.Hash {
+	return prefixedRlpHash(
+		ArbitrumRetryTxType,
+		[]any{
+			chainID,
+			d.L1RequestId,
+			d.From,
+			d.To,
+			d.Value,
+		})
+}
+
 type ArbitrumInternalTx struct {
 	ChainId *big.Int
 	Data    []byte
@@ -518,6 +608,15 @@ func (t *ArbitrumInternalTx) effectiveGasPrice(dst *big.Int, baseFee *big.Int) *
 	return dst.Set(bigZero)
 }
 
+func (t *ArbitrumInternalTx) sigHash(chainID *big.Int) common.Hash {
+	return prefixedRlpHash(
+		ArbitrumInternalTxType,
+		[]any{
+			chainID,
+			t.Data,
+		})
+}
+
 type HeaderInfo struct {
 	SendRoot           common.Hash
 	SendCount          uint64
@@ -543,7 +642,7 @@ func (info HeaderInfo) UpdateHeaderWithInfo(header *Header) {
 }
 
 func DeserializeHeaderExtraInformation(header *Header) HeaderInfo {
-	if header == nil || header.BaseFee == nil || header.BaseFee.Sign() == 0 || len(header.Extra) != 32 || header.Difficulty.Cmp(common.Big1) != 0 {
+	if header == nil || header.BaseFee == nil || len(header.Extra) != 32 || header.Difficulty.Cmp(common.Big1) != 0 {
 		// imported blocks have no base fee
 		// The genesis block doesn't have an ArbOS encoded extra field
 		return HeaderInfo{}

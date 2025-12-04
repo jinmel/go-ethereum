@@ -17,7 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/bloombits"
+	"github.com/ethereum/go-ethereum/core/filtermaps"
+	"github.com/ethereum/go-ethereum/core/history"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/state/snapshot"
@@ -46,10 +47,17 @@ var (
 type APIBackend struct {
 	b *Backend
 
-	dbForAPICalls ethdb.Database
+	fallbackClient        types.FallbackClient
+	archiveClientsManager *archiveFallbackClientsManager
+	sync                  SyncProgressBackend
+}
 
-	fallbackClient types.FallbackClient
-	sync           SyncProgressBackend
+func (a *APIBackend) RPCTxSyncDefaultTimeout() time.Duration {
+	return a.b.config.TxSyncDefaultTimeout
+}
+
+func (a *APIBackend) RPCTxSyncMaxTimeout() time.Duration {
+	return a.b.config.TxSyncMaxTimeout
 }
 
 type errorFilteredFallbackClient struct {
@@ -79,11 +87,11 @@ func (c *timeoutFallbackClient) CallContext(ctxIn context.Context, result interf
 	return c.impl.CallContext(ctx, result, method, args...)
 }
 
-func CreateFallbackClient(fallbackClientUrl string, fallbackClientTimeout time.Duration) (types.FallbackClient, error) {
+func CreateFallbackClient(fallbackClientUrl string, fallbackClientTimeout time.Duration, isArchiveNode bool) (types.FallbackClient, error) {
 	if fallbackClientUrl == "" {
 		return nil, nil
 	}
-	if strings.HasPrefix(fallbackClientUrl, "error:") {
+	if !isArchiveNode && strings.HasPrefix(fallbackClientUrl, "error:") {
 		fields := strings.Split(fallbackClientUrl, ":")[1:]
 		errNumber, convErr := strconv.ParseInt(fields[0], 0, 0)
 		if convErr == nil {
@@ -124,21 +132,22 @@ type SyncProgressBackend interface {
 	BlockMetadataByNumber(ctx context.Context, blockNum uint64) (common.BlockMetadata, error)
 }
 
-func createRegisterAPIBackend(backend *Backend, filterConfig filters.Config, fallbackClientUrl string, fallbackClientTimeout time.Duration) (*filters.FilterSystem, error) {
-	fallbackClient, err := CreateFallbackClient(fallbackClientUrl, fallbackClientTimeout)
+func createRegisterAPIBackend(backend *Backend, filterConfig filters.Config, fallbackClientUrl string, fallbackClientTimeout time.Duration, archiveRedirects []BlockRedirectConfig) (*filters.FilterSystem, error) {
+	fallbackClient, err := CreateFallbackClient(fallbackClientUrl, fallbackClientTimeout, false)
 	if err != nil {
 		return nil, err
 	}
-	// discard stylus-tag on any call made from api database
-	dbForAPICalls := backend.chainDb
-	wasmStore, tag := backend.chainDb.WasmDataBase()
-	if tag != 0 || len(backend.chainDb.WasmTargets()) > 1 {
-		dbForAPICalls = rawdb.WrapDatabaseWithWasm(backend.chainDb, wasmStore, 0, []ethdb.WasmTarget{rawdb.LocalTarget()})
+	var archiveClientsManager *archiveFallbackClientsManager
+	if len(archiveRedirects) != 0 {
+		archiveClientsManager, err = newArchiveFallbackClientsManager(archiveRedirects)
+		if err != nil {
+			return nil, err
+		}
 	}
 	backend.apiBackend = &APIBackend{
-		b:              backend,
-		dbForAPICalls:  dbForAPICalls,
-		fallbackClient: fallbackClient,
+		b:                     backend,
+		fallbackClient:        fallbackClient,
+		archiveClientsManager: archiveClientsManager,
 	}
 	filterSystem := filters.NewFilterSystem(backend.apiBackend, filterConfig)
 	backend.stack.RegisterAPIs(backend.apiBackend.GetAPIs(filterSystem))
@@ -198,10 +207,14 @@ func (a *APIBackend) GetArbitrumNode() interface{} {
 }
 
 func (a *APIBackend) GetBody(ctx context.Context, hash common.Hash, number rpc.BlockNumber) (*types.Body, error) {
-	if body := a.BlockChain().GetBody(hash); body != nil {
-		return body, nil
+	body := a.BlockChain().GetBody(hash)
+	if body == nil {
+		if uint64(number) < a.HistoryPruningCutoff() {
+			return nil, &history.PrunedHistoryError{}
+		}
+		return nil, errors.New("block body not found")
 	}
-	return nil, errors.New("block body not found")
+	return body, nil
 }
 
 // General Ethereum API
@@ -214,7 +227,7 @@ func (a *APIBackend) SyncProgressMap(ctx context.Context) map[string]interface{}
 	return a.sync.SyncProgressMap(ctx)
 }
 
-func (a *APIBackend) SyncProgress() ethereum.SyncProgress {
+func (a *APIBackend) SyncProgress(ctx context.Context) ethereum.SyncProgress {
 	progress := a.SyncProgressMap(context.Background())
 
 	if len(progress) == 0 {
@@ -357,7 +370,7 @@ func (a *APIBackend) BlobBaseFee(ctx context.Context) *big.Int {
 }
 
 func (a *APIBackend) ChainDb() ethdb.Database {
-	return a.dbForAPICalls
+	return a.b.chainDb
 }
 
 func (a *APIBackend) AccountManager() *accounts.Manager {
@@ -374,6 +387,14 @@ func (a *APIBackend) RPCGasCap() uint64 {
 
 func (a *APIBackend) RPCTxFeeCap() float64 {
 	return a.b.config.RPCTxFeeCap
+}
+
+func (a *APIBackend) CurrentView() *filtermaps.ChainView {
+	head := a.BlockChain().CurrentBlock()
+	if head == nil {
+		return nil
+	}
+	return filtermaps.NewChainView(a.BlockChain(), head.Number.Uint64(), head.Hash())
 }
 
 func (a *APIBackend) RPCEVMTimeout() time.Duration {
@@ -422,6 +443,9 @@ func (a *APIBackend) blockNumberToUint(ctx context.Context, number rpc.BlockNumb
 			return 0, errors.New("finalized block not found")
 		}
 		return currentFinalizedBlock.Number.Uint64(), nil
+	}
+	if number == rpc.EarliestBlockNumber {
+		return a.HistoryPruningCutoff(), nil
 	}
 	if number < 0 {
 		return 0, errors.New("block number not supported")
@@ -477,11 +501,23 @@ func (a *APIBackend) BlockByNumber(ctx context.Context, number rpc.BlockNumber) 
 	if err != nil {
 		return nil, err
 	}
-	return a.BlockChain().GetBlockByNumber(numUint), nil
+	block := a.BlockChain().GetBlockByNumber(numUint)
+	if block == nil && numUint < a.HistoryPruningCutoff() {
+		return nil, &history.PrunedHistoryError{}
+	}
+	return block, nil
 }
 
 func (a *APIBackend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	return a.BlockChain().GetBlockByHash(hash), nil
+	number := a.BlockChain().GetBlockNumber(hash)
+	if number == nil {
+		return nil, nil
+	}
+	block := a.BlockChain().GetBlock(hash, *number)
+	if block == nil && *number < a.HistoryPruningCutoff() {
+		return nil, &history.PrunedHistoryError{}
+	}
+	return block, nil
 }
 
 func (a *APIBackend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block, error) {
@@ -500,7 +536,11 @@ func (a *APIBackend) BlockMetadataByNumber(ctx context.Context, blockNum uint64)
 	return a.sync.BlockMetadataByNumber(ctx, blockNum)
 }
 
-func StateAndHeaderFromHeader(ctx context.Context, chainDb ethdb.Database, bc *core.BlockChain, maxRecreateStateDepth int64, header *types.Header, err error) (*state.StateDB, *types.Header, error) {
+func (a *APIBackend) NewMatcherBackend() filtermaps.MatcherBackend {
+	return a.b.filterMaps.NewMatcherBackend()
+}
+
+func StateAndHeaderFromHeader(ctx context.Context, chainDb ethdb.Database, bc *core.BlockChain, maxRecreateStateDepth int64, header *types.Header, err error, archiveClientsManager *archiveFallbackClientsManager) (*state.StateDB, *types.Header, error) {
 	if err != nil {
 		return nil, header, err
 	}
@@ -510,6 +550,24 @@ func StateAndHeaderFromHeader(ctx context.Context, chainDb ethdb.Database, bc *c
 	if !bc.Config().IsArbitrumNitro(header.Number) {
 		return nil, header, types.ErrUseFallback
 	}
+	if archiveClientsManager != nil && header.Number.Uint64() <= archiveClientsManager.lastAvailableBlock() {
+		return nil, header, &types.ErrUseArchiveFallback{BlockNum: header.Number.Uint64()}
+	}
+
+	// use upstream path for PathScheme, as:
+	// - intermediate state recreation and trie node referencing doesn't apply to pathdb
+	// - HistoricState is supported only by pathdb
+	if bc.TrieDB().Scheme() == rawdb.PathScheme {
+		statedb, err := bc.StateAt(header.Root)
+		if err != nil {
+			statedb, err = bc.HistoricState(header.Root)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+		return statedb, header, nil
+	}
+
 	stateFor := func(db state.Database, snapshots *snapshot.Tree) func(header *types.Header) (*state.StateDB, StateReleaseFunc, error) {
 		return func(header *types.Header) (*state.StateDB, StateReleaseFunc, error) {
 			if header.Root != (common.Hash{}) {
@@ -583,7 +641,7 @@ func StateAndHeaderFromHeader(ctx context.Context, chainDb ethdb.Database, bc *c
 
 func (a *APIBackend) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
 	header, err := a.HeaderByNumber(ctx, number)
-	return StateAndHeaderFromHeader(ctx, a.ChainDb(), a.b.arb.BlockChain(), a.b.config.MaxRecreateStateDepth, header, err)
+	return StateAndHeaderFromHeader(ctx, a.ChainDb(), a.b.arb.BlockChain(), a.b.config.MaxRecreateStateDepth, header, err, a.archiveClientsManager)
 }
 
 func (a *APIBackend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*state.StateDB, *types.Header, error) {
@@ -594,7 +652,7 @@ func (a *APIBackend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOr
 	if ishash && header != nil && header.Number.Cmp(bc.CurrentBlock().Number) > 0 && bc.GetCanonicalHash(header.Number.Uint64()) != hash {
 		return nil, nil, errors.New("requested block ahead of current block and the hash is not currently canonical")
 	}
-	return StateAndHeaderFromHeader(ctx, a.ChainDb(), a.b.arb.BlockChain(), a.b.config.MaxRecreateStateDepth, header, err)
+	return StateAndHeaderFromHeader(ctx, a.ChainDb(), a.b.arb.BlockChain(), a.b.config.MaxRecreateStateDepth, header, err, a.archiveClientsManager)
 }
 
 func (a *APIBackend) StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, checkLive bool, preferDisk bool) (statedb *state.StateDB, release tracers.StateReleaseFunc, err error) {
@@ -613,8 +671,17 @@ func (a *APIBackend) StateAtTransaction(ctx context.Context, block *types.Block,
 	return eth.NewArbEthereum(a.b.arb.BlockChain(), a.ChainDb()).StateAtTransaction(ctx, block, txIndex, reexec)
 }
 
+func (a *APIBackend) HistoryPruningCutoff() uint64 {
+	bn, _ := a.BlockChain().HistoryPruningCutoff()
+	return bn
+}
+
 func (a *APIBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
 	return a.BlockChain().GetReceiptsByHash(hash), nil
+}
+
+func (a *APIBackend) GetCanonicalReceipt(tx *types.Transaction, blockHash common.Hash, blockNumber, blockIndex uint64) (*types.Receipt, error) {
+	return a.BlockChain().GetCanonicalReceipt(tx, blockHash, blockNumber, blockIndex)
 }
 
 func (a *APIBackend) GetEVM(ctx context.Context, state *state.StateDB, header *types.Header, vmConfig *vm.Config, blockCtx *vm.BlockContext) *vm.EVM {
@@ -647,9 +714,13 @@ func (a *APIBackend) SendConditionalTx(ctx context.Context, signedTx *types.Tran
 	return a.b.EnqueueL2Message(ctx, signedTx, options)
 }
 
-func (a *APIBackend) GetTransaction(ctx context.Context, txHash common.Hash) (bool, *types.Transaction, common.Hash, uint64, uint64, error) {
-	tx, blockHash, blockNumber, index := rawdb.ReadTransaction(a.b.chainDb, txHash)
-	return tx != nil, tx, blockHash, blockNumber, index, nil
+func (a *APIBackend) GetCanonicalTransaction(txHash common.Hash) (bool, *types.Transaction, common.Hash, uint64, uint64) {
+	tx, blockHash, blockNumber, index := rawdb.ReadCanonicalTransaction(a.b.chainDb, txHash)
+	return tx != nil, tx, blockHash, blockNumber, index
+}
+
+func (a *APIBackend) TxIndexDone() bool {
+	return a.BlockChain().TxIndexDone()
 }
 
 func (a *APIBackend) GetPoolTransactions() (types.Transactions, error) {
@@ -687,19 +758,9 @@ func (a *APIBackend) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subs
 }
 
 // Filter API
-func (a *APIBackend) BloomStatus() (uint64, uint64) {
-	sections, _, _ := a.b.bloomIndexer.Sections()
-	return a.b.config.BloomBitsBlocks, sections
-}
 
 func (a *APIBackend) GetLogs(ctx context.Context, hash common.Hash, number uint64) ([][]*types.Log, error) {
 	return rawdb.ReadLogs(a.ChainDb(), hash, number), nil
-}
-
-func (a *APIBackend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
-	for i := 0; i < bloomFilterThreads; i++ {
-		go session.Multiplex(bloomRetrievalBatch, bloomRetrievalWait, a.b.bloomRequests)
-	}
 }
 
 func (a *APIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
@@ -729,4 +790,8 @@ func (a *APIBackend) Pending() (*types.Block, types.Receipts, *state.StateDB) {
 
 func (a *APIBackend) FallbackClient() types.FallbackClient {
 	return a.fallbackClient
+}
+
+func (a *APIBackend) ArchiveFallbackClient(blockNum uint64) types.FallbackClient {
+	return a.archiveClientsManager.fallbackClient(blockNum)
 }

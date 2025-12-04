@@ -18,7 +18,6 @@ package rawdb
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -44,25 +43,6 @@ const HashScheme = "hash"
 // area of the disk with good data locality property. But this scheme needs to rely
 // on extra state diffs to survive deep reorg.
 const PathScheme = "path"
-
-// hasher is used to compute the sha256 hash of the provided data.
-type hasher struct{ sha crypto.KeccakState }
-
-var hasherPool = sync.Pool{
-	New: func() interface{} { return &hasher{sha: crypto.NewKeccakState()} },
-}
-
-func newHasher() *hasher {
-	return hasherPool.Get().(*hasher)
-}
-
-func (h *hasher) hash(data []byte) common.Hash {
-	return crypto.HashData(h.sha, data)
-}
-
-func (h *hasher) release() {
-	hasherPool.Put(h)
-}
 
 // ReadAccountTrieNode retrieves the account trie node with the specified node path.
 func ReadAccountTrieNode(db ethdb.KeyValueReader, path []byte) []byte {
@@ -170,9 +150,7 @@ func HasTrieNode(db ethdb.KeyValueReader, owner common.Hash, path []byte, hash c
 		if len(blob) == 0 {
 			return false
 		}
-		h := newHasher()
-		defer h.release()
-		return h.hash(blob) == hash // exists but not match
+		return crypto.Keccak256Hash(blob) == hash // exist and match
 	default:
 		panic(fmt.Sprintf("Unknown scheme %v", scheme))
 	}
@@ -194,10 +172,8 @@ func ReadTrieNode(db ethdb.KeyValueReader, owner common.Hash, path []byte, hash 
 		if len(blob) == 0 {
 			return nil
 		}
-		h := newHasher()
-		defer h.release()
-		if h.hash(blob) != hash {
-			return nil // exists but not match
+		if crypto.Keccak256Hash(blob) != hash {
+			return nil // exist but not match
 		}
 		return blob
 	default:
@@ -265,10 +241,20 @@ func ReadStateScheme(db ethdb.Database) string {
 	if id := ReadPersistentStateID(vdb); id != 0 {
 		return PathScheme
 	}
+	genesisBlockNumber := uint64(0)
+	block0Hash := ReadCanonicalHash(db, 0)
+	if (block0Hash != common.Hash{}) {
+		chainConfig := ReadChainConfig(db, block0Hash)
+		if chainConfig != nil {
+			if chainConfig.IsArbitrum() {
+				genesisBlockNumber = chainConfig.ArbitrumChainParams.GenesisBlockNum
+			}
+		}
+	}
 	// In a hash-based scheme, the genesis state is consistently stored
 	// on the disk. To assess the scheme of the persistent state, it
 	// suffices to inspect the scheme of the genesis state.
-	header := ReadHeader(db, ReadCanonicalHash(db, 0), 0)
+	header := ReadHeader(db, ReadCanonicalHash(db, genesisBlockNumber), genesisBlockNumber)
 	if header == nil {
 		return "" // empty datadir
 	}
